@@ -1,0 +1,38 @@
+.App-header {
+    background-color: #282c34;
+    min-height: 10vh;
+    align-items: center;
+    font-size: calc(10px + 2vmin);
+    color: white;
+}
+
+#root {
+    height: 100%;
+}
+.App {
+    height: 100%;
+    display: grid;
+    grid: auto 1fr / 1fr;
+}
+
+.cont {
+    display: grid;
+    place-items: center;
+}
+
+.grid-cont-wrap--responsive {
+    height: 50vh;
+    width: 50vw;
+}
+.grid-cont--responsive {
+    height: 100%;
+    width: 100%;
+    border: 1px solid #e6e6e6;
+    background-color: white;
+    overflow: visible;
+
+    border-radius: 1rem;
+
+    display: grid;
+    place-items: center;
+}

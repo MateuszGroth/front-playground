@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Switch, Route } from 'react-router-dom';
 import './App.css';
 
 const Query = lazy(async () => import('./pages/Query'));
+const Interview = lazy(async () => import('./pages/Interview'));
 
 function App() {
     return (
@@ -13,6 +14,9 @@ function App() {
                     <Switch>
                         <Route path="/" exact>
                             Testing packages
+                        </Route>
+                        <Route path="/int" exact>
+                            <Interview />
                         </Route>
                         <Route path="/query" exact>
                             <Query />
