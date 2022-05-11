@@ -10,9 +10,7 @@ const PrivateRoute = ({ children }: { children: ReactNode }) => {
       return
     }
 
-    const path = window?.location?.pathname || '/'
-    const search = window?.location?.search || ''
-    login(path + search)
+    login()
   }, [isLogged, isInitialized, login, error])
 
   if (!isLogged) {

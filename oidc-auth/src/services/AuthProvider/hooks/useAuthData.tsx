@@ -3,7 +3,7 @@ import { createContext, useContext } from 'react'
 type AuthContextData = {
   user?: any
   token?: string
-  login: (redirectPath: string) => void
+  login: (redirectUri?: string) => void
   logout: () => void
   isLogged: boolean
   isInitialized: boolean

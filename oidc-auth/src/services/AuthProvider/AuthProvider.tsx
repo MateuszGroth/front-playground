@@ -181,7 +181,7 @@ const AuthProvider = (props: Props) => {
   }, [])
 
   const login = useCallback(
-    async (redirectUri: string) => {
+    async (redirectUri?: string) => {
       const storedAuthData = getStoredData()
       if (storedAuthData) {
         setIsLogged(true)
@@ -193,8 +193,15 @@ const AuthProvider = (props: Props) => {
       }
 
       const state = uuidv4()
+      if (redirectUri == null) {
+        const path = window?.location?.pathname || '/'
+        const search = window?.location?.search || ''
+        redirectUri = path + search
+      }
+
+      const authStateToStore: AuthStoredState = { state, redirectUri }
+
       try {
-        const authStateToStore: AuthStoredState = { state, redirectUri }
         window.sessionStorage.setItem(AUTH_STATE_STORAGE_KEY, JSON.stringify(authStateToStore))
       } catch (err) {}
 
