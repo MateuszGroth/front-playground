@@ -13,8 +13,7 @@ export const useTokenExpiredEffect = (callback: () => void, tokenExpDateTime: nu
     const currentTime = new Date().getTime()
     const expiresIn = tokenExpDateTime - currentTime
     if (expiresIn < 0) {
-      callbackRef.current()
-      return
+      return callbackRef.current()
     }
 
     const timeout = setTimeout(() => {

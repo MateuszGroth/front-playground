@@ -1,10 +1,10 @@
 import { useEffect, useState, useMemo, ReactNode, useCallback } from 'react'
-import { v4 as uuidv4 } from 'uuid'
 import { useNavigate } from 'react-router-dom'
+import { v4 as uuidv4 } from 'uuid'
 
 import { SERVICE_STATUS, DEFAULT_STORAGE_NAME, AUTH_STATE_STORAGE_KEY, AUTH_REDIRECT_PATHNAME } from './constant'
-import { AuthContext } from './hooks/useAuthData'
 import { useTokenExpiredEffect } from './hooks/useTokenExpiredEffect'
+import { AuthContext } from './hooks/useAuthData'
 
 type TokenResponse = {
   refresh_token: string
@@ -19,6 +19,7 @@ type AuthStoredState = {
 
 type AuthStoredData = {
   token: string
+  refreshToken: string
   tokenExpiration: number
 }
 
@@ -97,13 +98,22 @@ const AuthProvider = (props: Props) => {
       return setError('AuthProvider: Invalid token response')
     }
 
-    const tokenExpiration = Date.now() + expires_in * 1000
-    setIsLogged(true)
+    navigate(redirectUri || '/', { replace: true })
+
+    const tokenExpiration = Date.now() + expires_in * 1000 - 5000 // 5 seconds before token expiration
     setToken(access_token)
     setRefreshToken(refresh_token)
     setTokenExpDateTime(tokenExpiration)
 
-    navigate(redirectUri || '/', { replace: true })
+    const authStoredData: AuthStoredData = {
+      token: access_token,
+      refreshToken: refresh_token,
+      tokenExpiration,
+    }
+
+    window.localStorage.setItem(storageItemName, JSON.stringify(authStoredData))
+
+    setIsLogged(true)
   }, [])
 
   useEffect(() => {
@@ -140,6 +150,19 @@ const AuthProvider = (props: Props) => {
       .catch((err) => {
         return { error: err }
       })
+
+    if (!response || response.error) {
+      return setError(response?.error || 'AuthProvider: Unknown error')
+    }
+
+    const { expires_in, refresh_token } = response as TokenResponse
+    if (!expires_in || !refresh_token) {
+      return setError('AuthProvider: Invalid token response')
+    }
+
+    const tokenExpiration = Date.now() + expires_in * 1000 - 5000 // 5 seconds before token expiration
+    setRefreshToken(refresh_token)
+    setTokenExpDateTime(tokenExpiration)
   }, tokenExpDateTime)
 
   const getStoredData = useCallback(() => {
@@ -163,6 +186,7 @@ const AuthProvider = (props: Props) => {
       if (storedAuthData) {
         setIsLogged(true)
         setToken(storedAuthData.token)
+        setRefreshToken(storedAuthData.refreshToken)
         setTokenExpDateTime(storedAuthData.tokenExpiration)
 
         return
