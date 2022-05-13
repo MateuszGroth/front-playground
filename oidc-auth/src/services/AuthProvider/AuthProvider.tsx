@@ -65,6 +65,8 @@ const AuthProvider = (props: Props) => {
   const authClientIdRef = useRef(authClientId)
   const storageItemNameRef = useRef(storageItemName)
 
+  const abortControllerRef = useRef<AbortController>()
+
   const storeAuthData = useCallback(
     (authStoredData: AuthStoredData) => {
       try {
@@ -80,64 +82,85 @@ const AuthProvider = (props: Props) => {
     } catch (err) {}
   }, [storageItemNameRef])
 
-  const initialAuthProcess = useCallback(async () => {
-    const pathname = window?.location?.pathname
-    if (!pathname.startsWith(AUTH_REDIRECT_PATHNAME)) {
-      return
-    }
-    const searchParams = new URLSearchParams(window?.location?.search || '')
-    const paramsObj = Object.fromEntries(searchParams.entries())
+  const initialAuthProcess = useCallback(
+    async (abortController: AbortController) => {
+      void abortController
 
-    const { code, state } = paramsObj
-    if (!code || !state) {
-      return
-    }
+      const pathname = window?.location?.pathname
+      if (!pathname.startsWith(AUTH_REDIRECT_PATHNAME)) {
+        return false
+      }
 
-    let authStoredState: AuthStoredState | undefined
-    try {
-      authStoredState = JSON.parse(window?.sessionStorage?.getItem(AUTH_STATE_STORAGE_KEY) || '{}')
-    } catch (err) {}
-    window?.sessionStorage?.removeItem?.(AUTH_STATE_STORAGE_KEY)
+      const searchParams = new URLSearchParams(window?.location?.search || '')
+      const paramsObj = Object.fromEntries(searchParams.entries())
 
-    if (!authStoredState) {
-      return
-    }
+      const { code, state } = paramsObj
+      if (!code || !state) {
+        return false
+      }
 
-    const { redirectUri, state: storedState } = authStoredState
-    const isAuthStateValid = storedState === state
-    if (!isAuthStateValid) {
-      return
-    }
+      let authStoredState: AuthStoredState | undefined
+      try {
+        authStoredState = JSON.parse(window?.sessionStorage?.getItem(AUTH_STATE_STORAGE_KEY) || '{}')
+      } catch (err) {}
 
-    const response = await getTokenData(authBaseUrlRef.current, authClientIdRef.current, code)
-    if (!response || response.error) {
-      return setError(response?.error || 'AuthProvider: Unknown error')
-    }
+      if (!authStoredState) {
+        return false
+      }
 
-    const { access_token, expires_in, refresh_token } = response as TokenResponse
-    if (!access_token || !expires_in || !refresh_token) {
-      return setError('AuthProvider: Invalid token response')
-    }
+      const { redirectUri, state: storedState } = authStoredState
+      const isAuthStateValid = storedState === state
 
-    navigate(redirectUri || '/', { replace: true })
+      if (!isAuthStateValid) {
+        return false
+      }
 
-    const tokenExpiration = getTokenExpiration(expires_in)
-    setToken(access_token)
-    setRefreshToken(refresh_token)
-    setTokenExpDateTime(tokenExpiration)
-  }, [authBaseUrlRef, authClientIdRef, navigate])
+      window?.sessionStorage?.removeItem?.(AUTH_STATE_STORAGE_KEY)
+      const response = await getTokenData(authBaseUrlRef.current, authClientIdRef.current, code)
+
+      if (!response || response.error) {
+        setError(response?.error || 'AuthProvider: Unknown error')
+        return false
+      }
+
+      const { access_token, expires_in, refresh_token } = response as TokenResponse
+      if (!access_token || !expires_in || !refresh_token) {
+        setError('AuthProvider: Invalid token response')
+        return false
+      }
+      navigate(redirectUri || '/', { replace: true })
+
+      const tokenExpiration = getTokenExpiration(expires_in)
+      setToken(access_token)
+      setRefreshToken(refresh_token)
+      setTokenExpDateTime(tokenExpiration)
+
+      return true
+    },
+    [authBaseUrlRef, authClientIdRef, navigate]
+  )
 
   useEffect(() => {
     if (error) console.warn(error)
   }, [error])
+
+  useEffect(
+    () => () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current?.abort?.()
+      }
+    },
+    []
+  )
 
   useEffect(() => {
     if (status !== SERVICE_STATUS.INITIALIZING) {
       return
     }
 
+    abortControllerRef.current = new AbortController()
     const callback = async () => {
-      await initialAuthProcess()
+      await initialAuthProcess(abortControllerRef.current as AbortController)
       setStatus(SERVICE_STATUS.INITIALIZED)
     }
 
@@ -215,15 +238,19 @@ const AuthProvider = (props: Props) => {
       }
 
       isLoggingRef.current = true
-      const state = uuidv4()
-      let redirectUri = from
-      if (redirectUri == null) {
+      let currentUri = from
+      if (currentUri == null) {
         const path = window?.location?.pathname || '/'
         const search = window?.location?.search || ''
-        redirectUri = path + search
+        currentUri = path + search
       }
+      if (currentUri.startsWith(AUTH_REDIRECT_PATHNAME)) {
+        return
+      }
+
+      const state = uuidv4()
       try {
-        const authStateToStore: AuthStoredState = { state, redirectUri }
+        const authStateToStore: AuthStoredState = { state, redirectUri: currentUri }
         window?.sessionStorage?.setItem?.(AUTH_STATE_STORAGE_KEY, JSON.stringify(authStateToStore))
       } catch (err) {}
 
