@@ -3,17 +3,17 @@ import { useEffect, ReactNode } from 'react'
 import { useAuthData } from './hooks/useAuthData'
 
 const PrivateRoute = ({ children }: { children: ReactNode }) => {
-  const { isLogged, login, isInitialized, error } = useAuthData()
+  const { isLoggedIn, login, error, getIsLoggingIn } = useAuthData()
 
   useEffect(() => {
-    if (!isInitialized || isLogged || error) {
+    if (isLoggedIn || getIsLoggingIn() || error) {
       return
     }
 
     login()
-  }, [isLogged, isInitialized, login, error])
+  }, [isLoggedIn, login, error, getIsLoggingIn])
 
-  if (!isLogged) {
+  if (!isLoggedIn) {
     return null
   }
 

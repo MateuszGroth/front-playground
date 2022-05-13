@@ -1,8 +1,9 @@
-import { useEffect, useState, useMemo, ReactNode, useCallback } from 'react'
+import { useEffect, useState, useMemo, ReactNode, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { v4 as uuidv4 } from 'uuid'
 
 import { SERVICE_STATUS, DEFAULT_STORAGE_NAME, AUTH_STATE_STORAGE_KEY, AUTH_REDIRECT_PATHNAME } from './constant'
+import { getTokenData, refreshCurrentToken } from './api'
 import { useTokenExpiredEffect } from './hooks/useTokenExpiredEffect'
 import { AuthContext } from './hooks/useAuthData'
 
@@ -28,25 +29,62 @@ type Props = {
   storageItemName?: string
   authBaseUrl: string
   authClientId: string
+  LoadingComponent?: ReactNode
+}
+
+const getInitialStatus = () => {
+  // if the pathname is ${AUTH_REDIRECT_PATHNAME} we are supposed to receive a code needed to get a token
+  const pathname = window?.location?.pathname
+
+  return pathname.startsWith(AUTH_REDIRECT_PATHNAME) ? SERVICE_STATUS.INITIALIZING : SERVICE_STATUS.INITIALIZED
+}
+
+const getTokenExpiration = (expiresIn: number): number => {
+  // expiresIn is the time in seconds until the token expires
+  return Date.now() + expiresIn * 1000 - 5000 // 5 seconds before token expiration
 }
 
 const AuthProvider = (props: Props) => {
   const navigate = useNavigate()
-  const { children, storageItemName = DEFAULT_STORAGE_NAME, authBaseUrl, authClientId } = props
-  const [status, setStatus] = useState(SERVICE_STATUS.INITIAL)
+  const {
+    children,
+    storageItemName = DEFAULT_STORAGE_NAME,
+    authBaseUrl,
+    authClientId,
+    LoadingComponent = 'Loading...',
+  } = props
 
-  const [isLogged, setIsLogged] = useState<boolean>(false)
+  const [error, setError] = useState<any>()
+  const [status, setStatus] = useState(getInitialStatus)
+
   const [token, setToken] = useState<string>()
   const [refreshToken, setRefreshToken] = useState<string>()
   const [tokenExpDateTime, setTokenExpDateTime] = useState<number>()
-  const [error, setError] = useState<any>()
+
+  const authBaseUrlRef = useRef(authBaseUrl)
+  const authClientIdRef = useRef(authClientId)
+  const storageItemNameRef = useRef(storageItemName)
+
+  const storeAuthData = useCallback(
+    (authStoredData: AuthStoredData) => {
+      try {
+        localStorage.setItem(storageItemNameRef.current, JSON.stringify(authStoredData))
+      } catch (err) {}
+    },
+    [storageItemNameRef]
+  )
+
+  const clearAuthStore = useCallback(() => {
+    try {
+      localStorage.removeItem(storageItemNameRef.current)
+    } catch (err) {}
+  }, [storageItemNameRef])
 
   const initialAuthProcess = useCallback(async () => {
     const pathname = window?.location?.pathname
     if (!pathname.startsWith(AUTH_REDIRECT_PATHNAME)) {
       return
     }
-
     const searchParams = new URLSearchParams(window?.location?.search || '')
     const paramsObj = Object.fromEntries(searchParams.entries())
 
@@ -57,38 +95,21 @@ const AuthProvider = (props: Props) => {
 
     let authStoredState: AuthStoredState | undefined
     try {
-      authStoredState = JSON.parse(sessionStorage.getItem(AUTH_STATE_STORAGE_KEY) || '{}')
-    } catch (err) {
-      sessionStorage.removeItem(AUTH_STATE_STORAGE_KEY)
-    }
+      authStoredState = JSON.parse(window?.sessionStorage?.getItem(AUTH_STATE_STORAGE_KEY) || '{}')
+    } catch (err) {}
+    window?.sessionStorage?.removeItem?.(AUTH_STATE_STORAGE_KEY)
+
     if (!authStoredState) {
       return
     }
 
     const { redirectUri, state: storedState } = authStoredState
-    sessionStorage.removeItem(AUTH_STATE_STORAGE_KEY)
-
     const isAuthStateValid = storedState === state
     if (!isAuthStateValid) {
       return
     }
 
-    const tokenRequestBody = new FormData()
-    tokenRequestBody.set('code', code)
-    tokenRequestBody.set('grant_type', 'authorization_code')
-    tokenRequestBody.set('redirect_uri', `${window.location.origin}${AUTH_REDIRECT_PATHNAME}`)
-    tokenRequestBody.set('client_id', authClientId)
-
-    const tokenEndpoint = `${authBaseUrl}/oauth/token`
-    const response = await fetch(tokenEndpoint, {
-      method: 'POST',
-      body: tokenRequestBody,
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .catch((err) => {
-        return { error: err }
-      })
-
+    const response = await getTokenData(authBaseUrlRef.current, authClientIdRef.current, code)
     if (!response || response.error) {
       return setError(response?.error || 'AuthProvider: Unknown error')
     }
@@ -100,57 +121,50 @@ const AuthProvider = (props: Props) => {
 
     navigate(redirectUri || '/', { replace: true })
 
-    const tokenExpiration = Date.now() + expires_in * 1000 - 5000 // 5 seconds before token expiration
+    const tokenExpiration = getTokenExpiration(expires_in)
     setToken(access_token)
     setRefreshToken(refresh_token)
     setTokenExpDateTime(tokenExpiration)
-
-    const authStoredData: AuthStoredData = {
-      token: access_token,
-      refreshToken: refresh_token,
-      tokenExpiration,
-    }
-
-    window.localStorage.setItem(storageItemName, JSON.stringify(authStoredData))
-
-    setIsLogged(true)
-  }, [])
+  }, [authBaseUrlRef, authClientIdRef, navigate])
 
   useEffect(() => {
-    if (status !== SERVICE_STATUS.INITIAL) {
+    if (error) console.warn(error)
+  }, [error])
+
+  useEffect(() => {
+    if (status !== SERVICE_STATUS.INITIALIZING) {
       return
     }
 
     const callback = async () => {
-      setStatus(SERVICE_STATUS.INITIALIZING)
       await initialAuthProcess()
       setStatus(SERVICE_STATUS.INITIALIZED)
     }
 
     callback()
-  }, [status])
+  }, [status, initialAuthProcess])
+
+  useEffect(() => {
+    const isValidToken = token && tokenExpDateTime && tokenExpDateTime > Date.now()
+    const isValidRefreshToken = !!refreshToken
+    if (!isValidToken || !isValidRefreshToken) {
+      return
+    }
+
+    const authStoredData: AuthStoredData = {
+      token,
+      refreshToken,
+      tokenExpiration: tokenExpDateTime,
+    }
+    storeAuthData(authStoredData)
+  }, [token, refreshToken, tokenExpDateTime, storeAuthData])
 
   useTokenExpiredEffect(async () => {
     if (!refreshToken) {
       return logout()
     }
 
-    const refreshTokenRequestBody = new FormData()
-    refreshTokenRequestBody.set('grant_type', 'refresh_token')
-    refreshTokenRequestBody.set('refresh_token', refreshToken)
-    refreshTokenRequestBody.set('redirect_uri', `${window.location.origin}${AUTH_REDIRECT_PATHNAME}`)
-    refreshTokenRequestBody.set('client_id', authClientId)
-
-    const tokenEndpoint = `${authBaseUrl}/oauth/token`
-    const response = await fetch(tokenEndpoint, {
-      method: 'POST',
-      body: refreshTokenRequestBody,
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .catch((err) => {
-        return { error: err }
-      })
-
+    const response = await refreshCurrentToken(authBaseUrl, authClientId, refreshToken)
     if (!response || response.error) {
       return setError(response?.error || 'AuthProvider: Unknown error')
     }
@@ -160,31 +174,39 @@ const AuthProvider = (props: Props) => {
       return setError('AuthProvider: Invalid token response')
     }
 
-    const tokenExpiration = Date.now() + expires_in * 1000 - 5000 // 5 seconds before token expiration
+    const tokenExpiration = getTokenExpiration(expires_in)
     setRefreshToken(refresh_token)
     setTokenExpDateTime(tokenExpiration)
   }, tokenExpDateTime)
 
   const getStoredData = useCallback(() => {
     try {
-      const storedData: AuthStoredData = JSON.parse(window.localStorage.getItem(storageItemName) || '{}')
-      if (!storedData.token || !storedData.tokenExpiration) {
+      const storedData: AuthStoredData = JSON.parse(localStorage.getItem(storageItemNameRef.current) || '{}')
+      const isInvalidTokenData = !storedData.token || !storedData.tokenExpiration
+      const isExpiredToken = new Date(storedData.tokenExpiration).getTime() < Date.now()
+      if (isInvalidTokenData || isExpiredToken) {
+        clearAuthStore()
         return
       }
 
       return { ...storedData }
     } catch (err) {
-      localStorage.removeItem(storageItemName)
+      clearAuthStore()
     }
 
     return
-  }, [])
+  }, [clearAuthStore])
 
+  // login function might be called twice at the same time so we need to make sure we dont redirect twice
+  const isLoggingRef = useRef(false)
   const login = useCallback(
-    async (redirectUri?: string) => {
+    (from?: string) => {
+      if (isLoggingRef.current) {
+        return
+      }
+
       const storedAuthData = getStoredData()
       if (storedAuthData) {
-        setIsLogged(true)
         setToken(storedAuthData.token)
         setRefreshToken(storedAuthData.refreshToken)
         setTokenExpDateTime(storedAuthData.tokenExpiration)
@@ -192,42 +214,44 @@ const AuthProvider = (props: Props) => {
         return
       }
 
+      isLoggingRef.current = true
       const state = uuidv4()
+      let redirectUri = from
       if (redirectUri == null) {
         const path = window?.location?.pathname || '/'
         const search = window?.location?.search || ''
         redirectUri = path + search
       }
-
-      const authStateToStore: AuthStoredState = { state, redirectUri }
-
       try {
-        window.sessionStorage.setItem(AUTH_STATE_STORAGE_KEY, JSON.stringify(authStateToStore))
+        const authStateToStore: AuthStoredState = { state, redirectUri }
+        window?.sessionStorage?.setItem?.(AUTH_STATE_STORAGE_KEY, JSON.stringify(authStateToStore))
       } catch (err) {}
 
-      const authorizeEndpoint = `${authBaseUrl}/oauth/authorize`
+      const authorizeEndpoint = `${authBaseUrlRef.current}/oauth/authorize`
       const oauthQueryParams = new URLSearchParams({
-        client_id: authClientId,
-        redirect_uri: `${window.location.origin}${AUTH_REDIRECT_PATHNAME}`,
+        client_id: authClientIdRef.current,
+        redirect_uri: `${window?.location?.origin}${AUTH_REDIRECT_PATHNAME}`,
         response_type: 'code',
         scope: 'public',
         state,
       })
 
       // navigate to authorize endpoint
-      window.location.replace(`${authorizeEndpoint}?${oauthQueryParams.toString()}`)
+      window?.location?.replace?.(`${authorizeEndpoint}?${oauthQueryParams.toString()}`)
     },
-    [getStoredData]
+    [getStoredData, authBaseUrlRef, authClientIdRef]
   )
 
   const logout = useCallback(() => {
+    clearAuthStore()
+
     setError(undefined)
     setToken(undefined)
-    setIsLogged(false)
+    setRefreshToken(undefined)
     setTokenExpDateTime(undefined)
+  }, [clearAuthStore])
 
-    window.localStorage.removeItem(storageItemName)
-  }, [])
+  const getIsLoggingIn = useCallback(() => isLoggingRef.current, [isLoggingRef])
 
   const authContext = useMemo(() => {
     return {
@@ -235,10 +259,14 @@ const AuthProvider = (props: Props) => {
       token,
       login,
       logout,
-      isLogged,
-      isInitialized: status === SERVICE_STATUS.INITIALIZED,
+      isLoggedIn: !!token,
+      getIsLoggingIn,
     }
-  }, [token, login, logout, isLogged, status, error])
+  }, [token, login, logout, error, getIsLoggingIn])
+
+  if (status === SERVICE_STATUS.INITIALIZING) {
+    return <>{LoadingComponent}</>
+  }
 
   return <AuthContext.Provider value={authContext}>{children}</AuthContext.Provider>
 }
