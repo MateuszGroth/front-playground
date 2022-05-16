@@ -318,7 +318,7 @@ describe('AuthProvider', () => {
             JSON.stringify({
               token: 'test-token',
               refreshToken: 'new-test-refresh-token',
-            }).replace(/[\{\}]/g, '')
+            }).replace(/[{}]/g, '')
           )
         )
       )
@@ -458,7 +458,7 @@ describe('AuthProvider', () => {
             JSON.stringify({
               token: 'token',
               refreshToken: 'refreshToken',
-            }).replace(/[\{\}]/g, '')
+            }).replace(/[{}]/g, '')
           )
         )
       )
