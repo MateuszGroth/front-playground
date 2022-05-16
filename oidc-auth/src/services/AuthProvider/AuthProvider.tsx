@@ -41,8 +41,10 @@ const getInitialStatus = () => {
 
 const getTokenExpiration = (expiresIn: number): number => {
   // expiresIn is the time in seconds until the token expires
-  return Date.now() + expiresIn * 1000 - 5000 // 5 seconds before token expiration
+  return Date.now() + expiresIn * 1000 - 3000 // 3 seconds before token expiration
 }
+
+let isFetchingToken = false
 
 const AuthProvider = (props: Props) => {
   const navigate = useNavigate()
@@ -65,8 +67,6 @@ const AuthProvider = (props: Props) => {
   const authClientIdRef = useRef(authClientId)
   const storageItemNameRef = useRef(storageItemName)
 
-  const abortControllerRef = useRef<AbortController>()
-
   const storeAuthData = useCallback(
     (authStoredData: AuthStoredData) => {
       try {
@@ -82,85 +82,112 @@ const AuthProvider = (props: Props) => {
     } catch (err) {}
   }, [storageItemNameRef])
 
-  const initialAuthProcess = useCallback(
-    async (abortController: AbortController) => {
-      void abortController
-
-      const pathname = window?.location?.pathname
-      if (!pathname.startsWith(AUTH_REDIRECT_PATHNAME)) {
-        return false
+  const getStoredAuthData = useCallback(() => {
+    try {
+      const storedData: AuthStoredData = JSON.parse(localStorage.getItem(storageItemNameRef.current) || '{}')
+      const isInvalidTokenData = !storedData.token || !storedData.tokenExpiration
+      const isExpiredToken = new Date(storedData.tokenExpiration).getTime() < Date.now()
+      if (isInvalidTokenData || isExpiredToken) {
+        clearAuthStore()
+        return
       }
 
-      const searchParams = new URLSearchParams(window?.location?.search || '')
-      const paramsObj = Object.fromEntries(searchParams.entries())
+      return { ...storedData }
+    } catch (err) {
+      clearAuthStore()
+    }
 
-      const { code, state } = paramsObj
-      if (!code || !state) {
-        return false
-      }
+    return
+  }, [clearAuthStore])
 
-      let authStoredState: AuthStoredState | undefined
-      try {
-        authStoredState = JSON.parse(window?.sessionStorage?.getItem(AUTH_STATE_STORAGE_KEY) || '{}')
-      } catch (err) {}
+  const setStoredAuthData = useCallback((storedAuthData: AuthStoredData) => {
+    setToken(storedAuthData.token)
+    setRefreshToken(storedAuthData.refreshToken)
+    setTokenExpDateTime(storedAuthData.tokenExpiration)
+  }, [])
 
-      if (!authStoredState) {
-        return false
-      }
+  const initialAuthProcess = useCallback(async (): Promise<boolean> => {
+    if (isFetchingToken) {
+      // token is being fetched, wait for it to finish
+      return false
+    }
 
-      const { redirectUri, state: storedState } = authStoredState
-      const isAuthStateValid = storedState === state
-
-      if (!isAuthStateValid) {
-        return false
-      }
-
-      window?.sessionStorage?.removeItem?.(AUTH_STATE_STORAGE_KEY)
-      const response = await getTokenData(authBaseUrlRef.current, authClientIdRef.current, code)
-
-      if (!response || response.error) {
-        setError(response?.error || 'AuthProvider: Unknown error')
-        return false
-      }
-
-      const { access_token, expires_in, refresh_token } = response as TokenResponse
-      if (!access_token || !expires_in || !refresh_token) {
-        setError('AuthProvider: Invalid token response')
-        return false
-      }
-      navigate(redirectUri || '/', { replace: true })
-
-      const tokenExpiration = getTokenExpiration(expires_in)
-      setToken(access_token)
-      setRefreshToken(refresh_token)
-      setTokenExpDateTime(tokenExpiration)
-
+    const pathname = window?.location?.pathname
+    if (!pathname.startsWith(AUTH_REDIRECT_PATHNAME)) {
       return true
-    },
-    [authBaseUrlRef, authClientIdRef, navigate]
-  )
+    }
+
+    let authStoredState: AuthStoredState | undefined
+    try {
+      authStoredState = JSON.parse(window?.sessionStorage?.getItem(AUTH_STATE_STORAGE_KEY) || '{}')
+    } catch (err) {}
+
+    if (!authStoredState) {
+      // no auth stored state - naviagate away from the auth page
+      navigate('/', { replace: true })
+      return true
+    }
+
+    const { redirectUri, state: storedState } = authStoredState
+    const storedAuthData = getStoredAuthData()
+    if (storedAuthData) {
+      // use stored auth data, no need to fetch a new token
+      navigate(redirectUri || '/', { replace: true })
+      setStoredAuthData(storedAuthData)
+      return true
+    }
+
+    const searchParams = new URLSearchParams(window?.location?.search || '')
+    const paramsObj = Object.fromEntries(searchParams.entries())
+
+    const { code, state } = paramsObj
+    const isAuthStateValid = storedState === state
+    if (!code || !state || !isAuthStateValid) {
+      // invalid code or state - naviagate away to the redirect Uri
+      navigate(redirectUri || '/', { replace: true })
+      return true
+    }
+
+    isFetchingToken = true
+    window?.sessionStorage?.removeItem?.(AUTH_STATE_STORAGE_KEY)
+    const response = await getTokenData(authBaseUrlRef.current, authClientIdRef.current, code)
+    isFetchingToken = false
+    if (!response || response.error) {
+      setError(response?.error || 'AuthProvider: Unknown error')
+      return true
+    }
+
+    const { access_token, expires_in, refresh_token } = response as TokenResponse
+    if (!access_token || !expires_in || !refresh_token) {
+      setError('AuthProvider: Invalid token response')
+      return true
+    }
+
+    navigate(redirectUri || '/', { replace: true })
+
+    const tokenExpiration = getTokenExpiration(expires_in)
+    setToken(access_token)
+    setRefreshToken(refresh_token)
+    setTokenExpDateTime(tokenExpiration)
+
+    return true
+  }, [authBaseUrlRef, authClientIdRef, setStoredAuthData, getStoredAuthData, navigate])
 
   useEffect(() => {
     if (error) console.warn(error)
   }, [error])
-
-  useEffect(
-    () => () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current?.abort?.()
-      }
-    },
-    []
-  )
 
   useEffect(() => {
     if (status !== SERVICE_STATUS.INITIALIZING) {
       return
     }
 
-    abortControllerRef.current = new AbortController()
     const callback = async () => {
-      await initialAuthProcess(abortControllerRef.current as AbortController)
+      const isInitialized = await initialAuthProcess()
+      if (!isInitialized) {
+        return
+      }
+
       setStatus(SERVICE_STATUS.INITIALIZED)
     }
 
@@ -202,24 +229,6 @@ const AuthProvider = (props: Props) => {
     setTokenExpDateTime(tokenExpiration)
   }, tokenExpDateTime)
 
-  const getStoredData = useCallback(() => {
-    try {
-      const storedData: AuthStoredData = JSON.parse(localStorage.getItem(storageItemNameRef.current) || '{}')
-      const isInvalidTokenData = !storedData.token || !storedData.tokenExpiration
-      const isExpiredToken = new Date(storedData.tokenExpiration).getTime() < Date.now()
-      if (isInvalidTokenData || isExpiredToken) {
-        clearAuthStore()
-        return
-      }
-
-      return { ...storedData }
-    } catch (err) {
-      clearAuthStore()
-    }
-
-    return
-  }, [clearAuthStore])
-
   // login function might be called twice at the same time so we need to make sure we dont redirect twice
   const isLoggingRef = useRef(false)
   const login = useCallback(
@@ -228,12 +237,9 @@ const AuthProvider = (props: Props) => {
         return
       }
 
-      const storedAuthData = getStoredData()
+      const storedAuthData = getStoredAuthData()
       if (storedAuthData) {
-        setToken(storedAuthData.token)
-        setRefreshToken(storedAuthData.refreshToken)
-        setTokenExpDateTime(storedAuthData.tokenExpiration)
-
+        setStoredAuthData(storedAuthData)
         return
       }
 
@@ -244,6 +250,9 @@ const AuthProvider = (props: Props) => {
         const search = window?.location?.search || ''
         currentUri = path + search
       }
+
+      // handle case when react app has been mounted, unmounted then mounted again instatly...
+      // we need to make sure we dont redirect twice
       if (currentUri.startsWith(AUTH_REDIRECT_PATHNAME)) {
         return
       }
@@ -266,7 +275,7 @@ const AuthProvider = (props: Props) => {
       // navigate to authorize endpoint
       window?.location?.replace?.(`${authorizeEndpoint}?${oauthQueryParams.toString()}`)
     },
-    [getStoredData, authBaseUrlRef, authClientIdRef]
+    [getStoredAuthData, setStoredAuthData, authBaseUrlRef, authClientIdRef]
   )
 
   const logout = useCallback(() => {

@@ -1,11 +1,13 @@
 import { screen, waitFor, render } from '@testing-library/react'
 // import fetchMock from 'jest-fetch-mock'
 
-const fetchMock = jest.fn() as any
+// import { render } from 'helpers/testRender.test'
+
 import { AUTH_REDIRECT_PATHNAME, AUTH_STATE_STORAGE_KEY } from './constant'
 import AuthProvider from './AuthProvider'
 import PrivateRoute from './PrivateRoute'
 
+const fetchMock = jest.fn() as any
 const mockNavigate = jest.fn()
 const mockReplace = jest.fn()
 const mockSessionStorageSet = jest.fn()
@@ -266,8 +268,8 @@ describe('AuthProvider', () => {
     })
     it('should refresh token each time it expires and there is refresh token', async () => {
       setupTokenRequest({
-        token: 'token',
-        expires_in: 5.1,
+        token: 'test-token',
+        expires_in: 3.1,
         refresh_token: 'new-test-refresh-token',
       })
       const validStoredTokenData = {
@@ -299,7 +301,7 @@ describe('AuthProvider', () => {
         body: refreshTokenRequestBody,
       })
 
-      // await waitFor(() => expect(screen.queryByText('Test Auth Provider')).toBeNull())
+      await waitFor(() => expect(screen.queryByText('Test Auth Provider')).not.toBeNull())
       await waitFor(() => expect(mockTokenRequest).toBeCalledTimes(2))
 
       refreshTokenRequestBody.set('refresh_token', 'new-test-refresh-token')
@@ -307,8 +309,21 @@ describe('AuthProvider', () => {
         method: 'POST',
         body: refreshTokenRequestBody,
       })
-    })
 
+      await waitFor(() => expect(mockLocalStorageSet).toBeCalledTimes(2))
+      await waitFor(() =>
+        expect(mockLocalStorageSet).toHaveBeenLastCalledWith(
+          'test',
+          expect.stringContaining(
+            JSON.stringify({
+              token: 'test-token',
+              refreshToken: 'new-test-refresh-token',
+            }).replace(/[\{\}]/g, '')
+          )
+        )
+      )
+      await waitFor(() => expect(screen.queryByText('Test Auth Provider')).not.toBeNull())
+    })
     it('should clear stored credentials if they are invalid', async () => {
       const invalidStoredTokenData = {
         refreshToken: 'test-refresh-token',
@@ -329,6 +344,15 @@ describe('AuthProvider', () => {
     })
   })
   describe('After Logging', () => {
+    beforeEach(() => {
+      const stateData = {
+        state: 'state',
+        redirectUri: '/test-redirect',
+      }
+      const getMock = jest.fn().mockReturnValue(JSON.stringify(stateData))
+      window.sessionStorage.getItem = getMock
+    })
+
     it('should display Loading component if the app got redirected to auth path', async () => {
       window.location = new URL(`http://podato.com${AUTH_REDIRECT_PATHNAME}`) as any
       render(
@@ -348,6 +372,10 @@ describe('AuthProvider', () => {
           <PrivateRoute>Test Auth Provider</PrivateRoute>
         </AuthProvider>
       )
+      await waitFor(() => expect(mockNavigate).toBeCalledTimes(1))
+      expect(mockNavigate).toBeCalledWith('/test-redirect', { replace: true })
+      window.location = new URL(`http://podato.com/test-redirect`) as any
+      window.location.replace = mockReplace
       await waitFor(() => expect(mockReplace).toBeCalledTimes(1))
       expect(mockReplace).toBeCalledWith(authorizeEndpoint + '?' + testOauthQuerySearch)
     })
@@ -359,6 +387,10 @@ describe('AuthProvider', () => {
           <PrivateRoute>Test Auth Provider</PrivateRoute>
         </AuthProvider>
       )
+      await waitFor(() => expect(mockNavigate).toBeCalledTimes(1))
+      expect(mockNavigate).toBeCalledWith('/test-redirect', { replace: true })
+      window.location = new URL(`http://podato.com/test-redirect`) as any
+      window.location.replace = mockReplace
       await waitFor(() => expect(mockReplace).toBeCalledTimes(1))
       expect(mockReplace).toBeCalledWith(authorizeEndpoint + '?' + testOauthQuerySearch)
     })
@@ -378,27 +410,12 @@ describe('AuthProvider', () => {
       )
       await waitFor(() => expect(getMock).toBeCalledTimes(1))
       await waitFor(() => expect(getMock).toBeCalledWith(AUTH_STATE_STORAGE_KEY))
+      await waitFor(() => expect(mockNavigate).toBeCalledTimes(1))
+      expect(mockNavigate).toBeCalledWith('/test-redirect-uri', { replace: true })
+      window.location = new URL(`http://podato.com/test-redirect-uri`) as any
+      window.location.replace = mockReplace
       await waitFor(() => expect(mockReplace).toBeCalledTimes(1))
       expect(mockReplace).toBeCalledWith(authorizeEndpoint + '?' + testOauthQuerySearch)
-    })
-    it('should clear session storage item after accessing it', async () => {
-      const notMatchingStateData = {
-        state: 'not matching',
-        redirectUri: '/test-redirect-uri',
-      }
-      const getMock = jest.fn().mockReturnValue(JSON.stringify(notMatchingStateData))
-      window.sessionStorage.getItem = getMock
-      window.location = new URL(`http://podato.com${AUTH_REDIRECT_PATHNAME}?state=other&code=valid-code`) as any
-      window.location.replace = mockReplace
-      render(
-        <AuthProvider {...props}>
-          <PrivateRoute>Test Auth Provider</PrivateRoute>
-        </AuthProvider>
-      )
-      await waitFor(() => expect(getMock).toBeCalledTimes(1))
-      expect(getMock).toBeCalledWith(AUTH_STATE_STORAGE_KEY)
-      await waitFor(() => expect(mockSessionStorageRemove).toBeCalledTimes(1))
-      expect(mockSessionStorageRemove).toBeCalledWith(AUTH_STATE_STORAGE_KEY)
     })
     it('should fetch token with the code received from the redirect url', async () => {
       setupTokenRequest()
@@ -432,6 +449,20 @@ describe('AuthProvider', () => {
         method: 'POST',
         body: tokenRequestBody,
       })
+
+      await waitFor(() => expect(mockLocalStorageSet).toBeCalledTimes(1))
+      await waitFor(() =>
+        expect(mockLocalStorageSet).toHaveBeenLastCalledWith(
+          'test',
+          expect.stringContaining(
+            JSON.stringify({
+              token: 'token',
+              refreshToken: 'refreshToken',
+            }).replace(/[\{\}]/g, '')
+          )
+        )
+      )
+      await waitFor(() => expect(screen.queryByText('Test Auth Provider')).not.toBeNull())
     })
     it('should login successfully after receiving valid token response', async () => {
       setupTokenRequest()
