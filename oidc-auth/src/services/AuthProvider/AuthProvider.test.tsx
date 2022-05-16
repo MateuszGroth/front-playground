@@ -15,12 +15,18 @@ const mockLocalStorageSet = jest.fn()
 const mockSessionStorageRemove = jest.fn()
 const mockLocalStorageRemove = jest.fn()
 
+const fakeNavigate = (path: string, obj?: any) => {
+  window.location = new URL(`http://podato.com${path}`) as any
+  window.location.replace = mockReplace
+  mockNavigate(path, obj)
+}
+
 jest.mock('react-router-dom', () => {
   const actualRouter = jest.requireActual('react-router-dom')
   return {
     ...actualRouter,
     __esModule: true,
-    useNavigate: () => mockNavigate,
+    useNavigate: () => fakeNavigate,
   }
 })
 jest.mock('uuid', () => {
@@ -301,7 +307,7 @@ describe('AuthProvider', () => {
         body: refreshTokenRequestBody,
       })
 
-      await waitFor(() => expect(screen.queryByText('Test Auth Provider')).not.toBeNull())
+      await screen.findByText('Test Auth Provider')
       await waitFor(() => expect(mockTokenRequest).toBeCalledTimes(2))
 
       refreshTokenRequestBody.set('refresh_token', 'new-test-refresh-token')
@@ -310,7 +316,6 @@ describe('AuthProvider', () => {
         body: refreshTokenRequestBody,
       })
 
-      await waitFor(() => expect(mockLocalStorageSet).toBeCalledTimes(2))
       await waitFor(() =>
         expect(mockLocalStorageSet).toHaveBeenLastCalledWith(
           'test',
@@ -322,7 +327,7 @@ describe('AuthProvider', () => {
           )
         )
       )
-      await waitFor(() => expect(screen.queryByText('Test Auth Provider')).not.toBeNull())
+      await screen.findByText('Test Auth Provider')
     })
     it('should clear stored credentials if they are invalid', async () => {
       const invalidStoredTokenData = {
@@ -372,10 +377,11 @@ describe('AuthProvider', () => {
           <PrivateRoute>Test Auth Provider</PrivateRoute>
         </AuthProvider>
       )
+
       await waitFor(() => expect(mockNavigate).toBeCalledTimes(1))
+
       expect(mockNavigate).toBeCalledWith('/test-redirect', { replace: true })
-      window.location = new URL(`http://podato.com/test-redirect`) as any
-      window.location.replace = mockReplace
+
       await waitFor(() => expect(mockReplace).toBeCalledTimes(1))
       expect(mockReplace).toBeCalledWith(authorizeEndpoint + '?' + testOauthQuerySearch)
     })
@@ -389,8 +395,7 @@ describe('AuthProvider', () => {
       )
       await waitFor(() => expect(mockNavigate).toBeCalledTimes(1))
       expect(mockNavigate).toBeCalledWith('/test-redirect', { replace: true })
-      window.location = new URL(`http://podato.com/test-redirect`) as any
-      window.location.replace = mockReplace
+
       await waitFor(() => expect(mockReplace).toBeCalledTimes(1))
       expect(mockReplace).toBeCalledWith(authorizeEndpoint + '?' + testOauthQuerySearch)
     })
@@ -412,8 +417,6 @@ describe('AuthProvider', () => {
       await waitFor(() => expect(getMock).toBeCalledWith(AUTH_STATE_STORAGE_KEY))
       await waitFor(() => expect(mockNavigate).toBeCalledTimes(1))
       expect(mockNavigate).toBeCalledWith('/test-redirect-uri', { replace: true })
-      window.location = new URL(`http://podato.com/test-redirect-uri`) as any
-      window.location.replace = mockReplace
       await waitFor(() => expect(mockReplace).toBeCalledTimes(1))
       expect(mockReplace).toBeCalledWith(authorizeEndpoint + '?' + testOauthQuerySearch)
     })
@@ -462,7 +465,7 @@ describe('AuthProvider', () => {
           )
         )
       )
-      await waitFor(() => expect(screen.queryByText('Test Auth Provider')).not.toBeNull())
+      await screen.findByText('Test Auth Provider')
     })
     it('should login successfully after receiving valid token response', async () => {
       setupTokenRequest()
