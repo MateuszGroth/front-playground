@@ -1,11 +1,13 @@
-import { screen, waitFor, render } from '@testing-library/react'
-// import fetchMock from 'jest-fetch-mock'
-
-// import { render } from 'helpers/testRender.test'
+import { ReactElement } from 'react'
+import { BrowserRouter } from 'react-router-dom'
+import { screen, waitFor, render as originalRender } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 import { AUTH_REDIRECT_PATHNAME, AUTH_STATE_STORAGE_KEY } from './constant'
-import AuthProvider from './AuthProvider'
+import AuthProvider from '.'
 import PrivateRoute from './PrivateRoute'
+
+const render = (children: ReactElement) => originalRender(<BrowserRouter>{children}</BrowserRouter>)
 
 const fetchMock = jest.fn() as any
 const mockNavigate = jest.fn()
@@ -16,7 +18,7 @@ const mockSessionStorageRemove = jest.fn()
 const mockLocalStorageRemove = jest.fn()
 
 const fakeNavigate = (path: string, obj?: any) => {
-  window.location = new URL(`http://podato.com${path}`) as any
+  window.location = new URL(`http://example.com${path}`) as any
   window.location.replace = mockReplace
   mockNavigate(path, obj)
 }
@@ -35,7 +37,7 @@ jest.mock('uuid', () => {
     v4: () => 'state',
   }
 })
-const testAuthBaseUrl = 'http://podato.com/test-auth'
+const testAuthBaseUrl = 'http://example.com/test-auth'
 const testAuthClientId = 'testId'
 const testStorageItemName = 'test'
 const props = {
@@ -47,7 +49,7 @@ const props = {
 const authorizeEndpoint = `${testAuthBaseUrl}/oauth/authorize`
 const testOauthQueryParams = {
   client_id: testAuthClientId,
-  redirect_uri: `http://podato.com${AUTH_REDIRECT_PATHNAME}`,
+  redirect_uri: `http://example.com${AUTH_REDIRECT_PATHNAME}`,
   response_type: 'code',
   scope: 'public',
   state: 'state',
@@ -83,7 +85,7 @@ describe('AuthProvider', () => {
     delete (global.window as any).location
     delete (global.window as any).sessionStorage
     delete (global.window as any).localStorage
-    window.location = new URL('http://podato.com/') as any
+    window.location = new URL('http://example.com/') as any
     window.localStorage = {} as any
     window.sessionStorage = {} as any
     window.location.replace = mockReplace
@@ -91,6 +93,9 @@ describe('AuthProvider', () => {
     window.localStorage.removeItem = mockLocalStorageRemove
     window.sessionStorage.setItem = mockSessionStorageSet
     window.sessionStorage.removeItem = mockSessionStorageRemove
+
+    // hide console.warn messages
+    jest.spyOn(console, 'warn').mockImplementation()
   })
   it('should render correctly', () => {
     render(<AuthProvider {...props}>Test Auth Provider</AuthProvider>)
@@ -126,7 +131,7 @@ describe('AuthProvider', () => {
       )
     })
     it('should store correct redirect Uri when PrivateRoute is rendered and no credentials are stored', () => {
-      window.location = new URL('http://podato.com/test-location?test=true') as any
+      window.location = new URL('http://example.com/test-location?test=true') as any
       render(
         <AuthProvider {...props}>
           <PrivateRoute>Test Auth Provider</PrivateRoute>
@@ -185,6 +190,23 @@ describe('AuthProvider', () => {
       expect(getMock).toBeCalledTimes(1)
       expect(getMock).toBeCalledWith(testStorageItemName)
       expect(mockSessionStorageSet).toBeCalledTimes(0)
+    })
+    it('should use stored credentials from session storage when storegeType is set to session', () => {
+      const validStoredTokenData = {
+        token: 'test-token',
+        tokenExpiration: Date.now() + 60 * 1000,
+      }
+      const getMock = jest.fn().mockReturnValue(JSON.stringify(validStoredTokenData))
+      window.sessionStorage.getItem = getMock
+      render(
+        <AuthProvider {...props} storageType="session">
+          <PrivateRoute>Test Auth Provider</PrivateRoute>
+        </AuthProvider>
+      )
+
+      expect(getMock).toBeCalledTimes(1)
+      expect(getMock).toBeCalledWith(testStorageItemName)
+      expect(mockSessionStorageSet).not.toHaveBeenCalledWith(AUTH_STATE_STORAGE_KEY, expect.anything())
     })
     it('should not use stored credentials without token when PrivateRoute is rendered and try to login', () => {
       const invalidStoredTokenData = {
@@ -272,9 +294,99 @@ describe('AuthProvider', () => {
       await waitFor(() => expect(mockReplace).toBeCalledTimes(1))
       expect(mockReplace).toBeCalledWith(authorizeEndpoint + '?' + testOauthQuerySearch)
     })
+    it('should display error from the token refresh response', async () => {
+      setupTokenRequest({ error: 'test error' })
+      const validStoredTokenData = {
+        token: 'test-token',
+        tokenExpiration: Date.now() + 100,
+        refreshToken: 'test-refresh-token',
+      }
+      const getMock = jest.fn().mockReturnValueOnce(JSON.stringify(validStoredTokenData))
+      window.localStorage.getItem = getMock
+      render(
+        <AuthProvider {...props}>
+          <PrivateRoute>Test Auth Provider</PrivateRoute>
+        </AuthProvider>
+      )
+
+      await waitFor(() => expect(mockTokenRequest).toBeCalledTimes(1))
+      await screen.findByText(/test error/)
+    })
+    it('should display error when the refresh token response is empty', async () => {
+      setupTokenRequest('')
+      const validStoredTokenData = {
+        token: 'test-token',
+        tokenExpiration: Date.now() + 100,
+        refreshToken: 'test-refresh-token',
+      }
+      const getMock = jest.fn().mockReturnValueOnce(JSON.stringify(validStoredTokenData))
+      window.localStorage.getItem = getMock
+      render(
+        <AuthProvider {...props}>
+          <PrivateRoute>Test Auth Provider</PrivateRoute>
+        </AuthProvider>
+      )
+
+      await waitFor(() => expect(mockTokenRequest).toBeCalledTimes(1))
+      await screen.findByText(/AuthProvider: Refresh token unknown error/)
+    })
+    it('should display error if refresh token response has no access token', async () => {
+      setupTokenRequest({ expires_in: 1000, refresh_token: 'test-refresh-token' })
+      const validStoredTokenData = {
+        token: 'test-token',
+        tokenExpiration: Date.now() + 100,
+        refreshToken: 'test-refresh-token',
+      }
+      const getMock = jest.fn().mockReturnValueOnce(JSON.stringify(validStoredTokenData))
+      window.localStorage.getItem = getMock
+      render(
+        <AuthProvider {...props}>
+          <PrivateRoute>Test Auth Provider</PrivateRoute>
+        </AuthProvider>
+      )
+
+      await waitFor(() => expect(mockTokenRequest).toBeCalledTimes(1))
+      await screen.findByText(/AuthProvider: Invalid refresh token response/)
+    })
+    it('should display error if refresh token response has no refresh token', async () => {
+      setupTokenRequest({ expires_in: 1000, access_token: 'test-refresh-token' })
+      const validStoredTokenData = {
+        token: 'test-token',
+        tokenExpiration: Date.now() + 100,
+        refreshToken: 'test-refresh-token',
+      }
+      const getMock = jest.fn().mockReturnValueOnce(JSON.stringify(validStoredTokenData))
+      window.localStorage.getItem = getMock
+      render(
+        <AuthProvider {...props}>
+          <PrivateRoute>Test Auth Provider</PrivateRoute>
+        </AuthProvider>
+      )
+
+      await waitFor(() => expect(mockTokenRequest).toBeCalledTimes(1))
+      await screen.findByText(/AuthProvider: Invalid refresh token response/)
+    })
+    it('should display error if refresh token response has no expires in field', async () => {
+      setupTokenRequest({ refresh_token: 'fasd', access_token: 'test-refresh-token' })
+      const validStoredTokenData = {
+        token: 'test-token',
+        tokenExpiration: Date.now() + 100,
+        refreshToken: 'test-refresh-token',
+      }
+      const getMock = jest.fn().mockReturnValueOnce(JSON.stringify(validStoredTokenData))
+      window.localStorage.getItem = getMock
+      render(
+        <AuthProvider {...props}>
+          <PrivateRoute>Test Auth Provider</PrivateRoute>
+        </AuthProvider>
+      )
+
+      await waitFor(() => expect(mockTokenRequest).toBeCalledTimes(1))
+      await screen.findByText(/AuthProvider: Invalid refresh token response/)
+    })
     it('should refresh token each time it expires and there is refresh token', async () => {
       setupTokenRequest({
-        token: 'test-token',
+        access_token: 'test-token-new',
         expires_in: 3.1,
         refresh_token: 'new-test-refresh-token',
       })
@@ -295,11 +407,16 @@ describe('AuthProvider', () => {
       await screen.findByText('Test Auth Provider')
 
       await waitFor(() => expect(mockTokenRequest).toBeCalledTimes(1))
+      setupTokenRequest({
+        access_token: 'test-token-new-2',
+        expires_in: 30.1,
+        refresh_token: 'new-test-refresh-token',
+      })
 
       const refreshTokenRequestBody = new FormData()
       refreshTokenRequestBody.set('grant_type', 'refresh_token')
       refreshTokenRequestBody.set('refresh_token', 'test-refresh-token')
-      refreshTokenRequestBody.set('redirect_uri', `http://podato.com${AUTH_REDIRECT_PATHNAME}`)
+      refreshTokenRequestBody.set('redirect_uri', `http://example.com${AUTH_REDIRECT_PATHNAME}`)
       refreshTokenRequestBody.set('client_id', testAuthClientId)
 
       expect(global.fetch).toHaveBeenCalledWith(tokenEndpoint, {
@@ -316,12 +433,13 @@ describe('AuthProvider', () => {
         body: refreshTokenRequestBody,
       })
 
+      await waitFor(() => expect(mockTokenRequest).toBeCalledTimes(2))
       await waitFor(() =>
         expect(mockLocalStorageSet).toHaveBeenLastCalledWith(
           'test',
           expect.stringContaining(
             JSON.stringify({
-              token: 'test-token',
+              token: 'test-token-new-2',
               refreshToken: 'new-test-refresh-token',
             }).replace(/[{}]/g, '')
           )
@@ -359,7 +477,7 @@ describe('AuthProvider', () => {
     })
 
     it('should display Loading component if the app got redirected to auth path', async () => {
-      window.location = new URL(`http://podato.com${AUTH_REDIRECT_PATHNAME}`) as any
+      window.location = new URL(`http://example.com${AUTH_REDIRECT_PATHNAME}`) as any
       render(
         <AuthProvider {...props} LoadingComponent={<>Test Loading Component</>}>
           <PrivateRoute>Test Auth Provider</PrivateRoute>
@@ -370,7 +488,7 @@ describe('AuthProvider', () => {
       await waitFor(() => expect(screen.queryByText('Test Auth Provider')).toBeNull())
     })
     it('should attempt to login again if search params are invalid', async () => {
-      window.location = new URL(`http://podato.com${AUTH_REDIRECT_PATHNAME}?search=invalid`) as any
+      window.location = new URL(`http://example.com${AUTH_REDIRECT_PATHNAME}?search=invalid`) as any
       window.location.replace = mockReplace
       render(
         <AuthProvider {...props}>
@@ -386,7 +504,7 @@ describe('AuthProvider', () => {
       expect(mockReplace).toBeCalledWith(authorizeEndpoint + '?' + testOauthQuerySearch)
     })
     it('should attempt to login again if there is no code', async () => {
-      window.location = new URL(`http://podato.com${AUTH_REDIRECT_PATHNAME}?state=state`) as any
+      window.location = new URL(`http://example.com${AUTH_REDIRECT_PATHNAME}?state=state`) as any
       window.location.replace = mockReplace
       render(
         <AuthProvider {...props}>
@@ -406,7 +524,7 @@ describe('AuthProvider', () => {
       }
       const getMock = jest.fn().mockReturnValue(JSON.stringify(notMatchingStateData))
       window.sessionStorage.getItem = getMock
-      window.location = new URL(`http://podato.com${AUTH_REDIRECT_PATHNAME}?state=other&code=valid-code`) as any
+      window.location = new URL(`http://example.com${AUTH_REDIRECT_PATHNAME}?state=other&code=valid-code`) as any
       window.location.replace = mockReplace
       render(
         <AuthProvider {...props}>
@@ -428,7 +546,7 @@ describe('AuthProvider', () => {
       }
       const getMock = jest.fn().mockReturnValue(JSON.stringify(matchingStateData))
       window.sessionStorage.getItem = getMock
-      window.location = new URL(`http://podato.com${AUTH_REDIRECT_PATHNAME}?state=state&code=valid-test-code`) as any
+      window.location = new URL(`http://example.com${AUTH_REDIRECT_PATHNAME}?state=state&code=valid-test-code`) as any
       window.location.replace = mockReplace
       render(
         <AuthProvider {...props}>
@@ -445,7 +563,7 @@ describe('AuthProvider', () => {
       const tokenRequestBody = new FormData()
       tokenRequestBody.set('code', 'valid-test-code')
       tokenRequestBody.set('grant_type', 'authorization_code')
-      tokenRequestBody.set('redirect_uri', `http://podato.com${AUTH_REDIRECT_PATHNAME}`)
+      tokenRequestBody.set('redirect_uri', `http://example.com${AUTH_REDIRECT_PATHNAME}`)
       tokenRequestBody.set('client_id', testAuthClientId)
 
       expect(global.fetch).toHaveBeenCalledWith(tokenEndpoint, {
@@ -467,6 +585,80 @@ describe('AuthProvider', () => {
       )
       await screen.findByText('Test Auth Provider')
     })
+    it('should display error if the token response was invalid', async () => {
+      setupTokenRequest('')
+      const matchingStateData = {
+        state: 'state',
+        redirectUri: '/test-redirect-uri',
+      }
+      const getMock = jest.fn().mockReturnValue(JSON.stringify(matchingStateData))
+      window.sessionStorage.getItem = getMock
+      window.location = new URL(`http://example.com${AUTH_REDIRECT_PATHNAME}?state=state&code=valid-test-code`) as any
+      window.location.replace = mockReplace
+      render(
+        <AuthProvider {...props}>
+          <PrivateRoute>Test Auth Provider</PrivateRoute>
+        </AuthProvider>
+      )
+      await waitFor(() => expect(mockTokenRequest).toBeCalledTimes(1))
+      await screen.findByText('An Error occured:')
+    })
+    it('should display custom error if the token response was invalid', async () => {
+      setupTokenRequest('')
+      const matchingStateData = {
+        state: 'state',
+        redirectUri: '/test-redirect-uri',
+      }
+      const getMock = jest.fn().mockReturnValue(JSON.stringify(matchingStateData))
+      window.sessionStorage.getItem = getMock
+      window.location = new URL(`http://example.com${AUTH_REDIRECT_PATHNAME}?state=state&code=valid-test-code`) as any
+      render(
+        <AuthProvider {...props}>
+          <PrivateRoute ErrorComponent={<>Custom error component</>}>Test Auth Provider</PrivateRoute>
+        </AuthProvider>
+      )
+      await waitFor(() => expect(mockTokenRequest).toBeCalledTimes(1))
+
+      await screen.findByText('Custom error component')
+    })
+    it('should display error from the response', async () => {
+      setupTokenRequest({ error: 'Test response error' })
+      const matchingStateData = {
+        state: 'state',
+        redirectUri: '/test-redirect-uri',
+      }
+      const getMock = jest.fn().mockReturnValue(JSON.stringify(matchingStateData))
+      window.sessionStorage.getItem = getMock
+      window.location = new URL(`http://example.com${AUTH_REDIRECT_PATHNAME}?state=state&code=valid-test-code`) as any
+      render(
+        <AuthProvider {...props}>
+          <PrivateRoute>Test Auth Provider</PrivateRoute>
+        </AuthProvider>
+      )
+      await waitFor(() => expect(mockTokenRequest).toBeCalledTimes(1))
+      await screen.findByText(/Test response error/)
+    })
+    it('should attempt to login after clicking the button showed in case of error', async () => {
+      setupTokenRequest({ error: 'Test response error' })
+      const matchingStateData = {
+        state: 'state',
+        redirectUri: '/test-redirect-uri',
+      }
+      const getMock = jest.fn().mockReturnValue(JSON.stringify(matchingStateData))
+      window.sessionStorage.getItem = getMock
+      window.location = new URL(`http://example.com${AUTH_REDIRECT_PATHNAME}?state=state&code=valid-test-code`) as any
+      window.location.replace = mockReplace
+      render(
+        <AuthProvider {...props}>
+          <PrivateRoute>Test Auth Provider</PrivateRoute>
+        </AuthProvider>
+      )
+      await waitFor(() => expect(mockTokenRequest).toBeCalledTimes(1))
+      await screen.findByText(/Test response error/)
+      userEvent.click(screen.getByText('Click here'))
+
+      await waitFor(() => expect(mockReplace).toBeCalledTimes(1))
+    })
     it('should login successfully after receiving valid token response', async () => {
       setupTokenRequest()
       const matchingStateData = {
@@ -475,7 +667,7 @@ describe('AuthProvider', () => {
       }
       const getMock = jest.fn().mockReturnValue(JSON.stringify(matchingStateData))
       window.sessionStorage.getItem = getMock
-      window.location = new URL(`http://podato.com${AUTH_REDIRECT_PATHNAME}?state=state&code=valid-test-code`) as any
+      window.location = new URL(`http://example.com${AUTH_REDIRECT_PATHNAME}?state=state&code=valid-test-code`) as any
       render(
         <AuthProvider {...props}>
           <PrivateRoute>Test Auth Provider</PrivateRoute>
@@ -492,7 +684,7 @@ describe('AuthProvider', () => {
       }
       const getMock = jest.fn().mockReturnValue(JSON.stringify(matchingStateData))
       window.sessionStorage.getItem = getMock
-      window.location = new URL(`http://podato.com${AUTH_REDIRECT_PATHNAME}?state=state&code=valid-test-code`) as any
+      window.location = new URL(`http://example.com${AUTH_REDIRECT_PATHNAME}?state=state&code=valid-test-code`) as any
       render(
         <AuthProvider {...props}>
           <PrivateRoute>Test Auth Provider</PrivateRoute>
@@ -512,7 +704,7 @@ describe('AuthProvider', () => {
       }
       const getMock = jest.fn().mockReturnValue(JSON.stringify(matchingStateData))
       window.sessionStorage.getItem = getMock
-      window.location = new URL(`http://podato.com${AUTH_REDIRECT_PATHNAME}?state=state&code=valid-test-code`) as any
+      window.location = new URL(`http://example.com${AUTH_REDIRECT_PATHNAME}?state=state&code=valid-test-code`) as any
       render(
         <AuthProvider {...props} LoadingComponent={<>Test Loading Component</>}>
           <PrivateRoute>Test Auth Provider</PrivateRoute>
@@ -533,7 +725,7 @@ describe('AuthProvider', () => {
       }
       const getMock = jest.fn().mockReturnValue(JSON.stringify(matchingStateData))
       window.sessionStorage.getItem = getMock
-      window.location = new URL(`http://podato.com${AUTH_REDIRECT_PATHNAME}?state=state&code=valid-test-code`) as any
+      window.location = new URL(`http://example.com${AUTH_REDIRECT_PATHNAME}?state=state&code=valid-test-code`) as any
       render(
         <AuthProvider {...props} LoadingComponent={<>Test Loading Component</>}>
           <PrivateRoute>Test Auth Provider</PrivateRoute>

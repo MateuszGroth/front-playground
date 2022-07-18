@@ -26,6 +26,7 @@ type AuthStoredData = {
 
 type Props = {
   children: ReactNode
+  storageType?: 'local' | 'session'
   storageItemName?: string
   authBaseUrl: string
   authClientId: string
@@ -53,6 +54,7 @@ const AuthProvider = (props: Props) => {
     storageItemName = DEFAULT_STORAGE_NAME,
     authBaseUrl,
     authClientId,
+    storageType = 'local',
     LoadingComponent = 'Loading...',
   } = props
 
@@ -66,25 +68,26 @@ const AuthProvider = (props: Props) => {
   const authBaseUrlRef = useRef(authBaseUrl)
   const authClientIdRef = useRef(authClientId)
   const storageItemNameRef = useRef(storageItemName)
+  const storageRef = useRef(storageType === 'session' ? sessionStorage : localStorage)
 
   const storeAuthData = useCallback(
     (authStoredData: AuthStoredData) => {
       try {
-        localStorage.setItem(storageItemNameRef.current, JSON.stringify(authStoredData))
+        storageRef.current.setItem(storageItemNameRef.current, JSON.stringify(authStoredData))
       } catch (err) {}
     },
-    [storageItemNameRef]
+    [storageItemNameRef, storageRef]
   )
 
   const clearAuthStore = useCallback(() => {
     try {
-      localStorage.removeItem(storageItemNameRef.current)
+      storageRef.current.removeItem(storageItemNameRef.current)
     } catch (err) {}
   }, [storageItemNameRef])
 
   const getStoredAuthData = useCallback(() => {
     try {
-      const storedData: AuthStoredData = JSON.parse(localStorage.getItem(storageItemNameRef.current) || '{}')
+      const storedData: AuthStoredData = JSON.parse(storageRef.current.getItem(storageItemNameRef.current) || '{}')
       const isInvalidTokenData = !storedData.token || !storedData.tokenExpiration
       const isExpiredToken = new Date(storedData.tokenExpiration).getTime() < Date.now()
       if (isInvalidTokenData || isExpiredToken) {
@@ -153,12 +156,14 @@ const AuthProvider = (props: Props) => {
     const response = await getTokenData(authBaseUrlRef.current, authClientIdRef.current, code)
     isFetchingToken = false
     if (!response || response.error) {
+      navigate(redirectUri || '/', { replace: true })
       setError(response?.error || 'AuthProvider: Unknown error')
       return true
     }
 
     const { access_token, expires_in, refresh_token } = response as TokenResponse
     if (!access_token || !expires_in || !refresh_token) {
+      navigate(redirectUri || '/', { replace: true })
       setError('AuthProvider: Invalid token response')
       return true
     }
@@ -216,15 +221,16 @@ const AuthProvider = (props: Props) => {
 
     const response = await refreshCurrentToken(authBaseUrl, authClientId, refreshToken)
     if (!response || response.error) {
-      return setError(response?.error || 'AuthProvider: Unknown error')
+      return setError(response?.error || 'AuthProvider: Refresh token unknown error')
     }
 
-    const { expires_in, refresh_token } = response as TokenResponse
-    if (!expires_in || !refresh_token) {
-      return setError('AuthProvider: Invalid token response')
+    const { expires_in, refresh_token, access_token } = response as TokenResponse
+    if (!expires_in || !refresh_token || !access_token) {
+      return setError('AuthProvider: Invalid refresh token response')
     }
 
     const tokenExpiration = getTokenExpiration(expires_in)
+    setToken(access_token)
     setRefreshToken(refresh_token)
     setTokenExpDateTime(tokenExpiration)
   }, tokenExpDateTime)
@@ -233,6 +239,11 @@ const AuthProvider = (props: Props) => {
   const isLoggingRef = useRef(false)
   const login = useCallback(
     (from?: string) => {
+      if (!authBaseUrlRef.current) {
+        setError('AuthProvider: authBaseUrl is not set')
+        return
+      }
+
       if (isLoggingRef.current) {
         return
       }
@@ -250,7 +261,6 @@ const AuthProvider = (props: Props) => {
         const search = window?.location?.search || ''
         currentUri = path + search
       }
-
       // handle case when react app has been mounted, unmounted then mounted again instatly...
       // we need to make sure we dont redirect twice
       if (currentUri.startsWith(AUTH_REDIRECT_PATHNAME)) {

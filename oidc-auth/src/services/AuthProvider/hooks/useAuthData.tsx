@@ -17,8 +17,10 @@ export const AuthContext = createContext<AuthContextData>({
   isLoggedIn: false,
 })
 
-export const useAuthData = () => {
+const useAuthData = () => {
   const context = useContext(AuthContext)
 
   return context
 }
+
+export default useAuthData
