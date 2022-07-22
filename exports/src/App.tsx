@@ -13,26 +13,23 @@ const order: Record<Key, number> = {
   birthday: 1,
   address: 2,
 }
-const data = [
+type Row = Partial<Record<Key, string>>
+const data: Row[] = [
   { name: 'George Washington ASD AS DAS DAS DAS DAS ASD ', birthday: '1732-02-22', address: 'Gdynia' },
   { name: 'John Adams', address: 'Gdynia', birthday: '1735-10-19' },
   { birthday: '1735-10-19', name: 'Mateusz' },
+  { address: 'test' },
   // ... one row per President
 ]
-const dataCopy = JSON.parse(JSON.stringify(data))
 const orderedKeys = [...keys].sort((a, b) => order[a] - order[b])
-const parsedData = dataCopy.map((row: Record<Key, string | number>) => {
-  // put the row object into an array in the right order
-  return orderedKeys.map((key) => row[key] ?? '')
-})
 
-const columnsWidths: Array<{ wch: number }> = parsedData
-  .reduce((acc: number[], row: string[]) => {
-    row.forEach((cell, i) => {
+const columnsWidths: Array<{ wch: number }> = data
+  .reduce((acc: number[], row: Row) => {
+    orderedKeys.forEach((key, i) => {
       if (!acc[i]) {
         acc[i] = 10
       }
-      acc[i] = Math.max(acc[i], cell.length)
+      acc[i] = Math.max(acc[i], row[key]?.length ?? 0)
     })
     return acc
   }, [])
@@ -40,17 +37,47 @@ const columnsWidths: Array<{ wch: number }> = parsedData
 
 function App() {
   const handleClick = () => {
-    const worksheet = XLSX.utils.json_to_sheet(parsedData)
+    const worksheet = XLSX.utils.json_to_sheet(JSON.parse(JSON.stringify(data)), {
+      header: orderedKeys, // use correct order of keys
+    })
     worksheet['!cols'] = columnsWidths
+    XLSX.utils.sheet_add_aoa(worksheet, [orderedKeys.map((key) => KEY_MAP[key])], { origin: 'A1' })
 
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Dates')
-    XLSX.utils.sheet_add_aoa(worksheet, [orderedKeys.map((key) => KEY_MAP[key])], { origin: 'A1' })
+
+    // override header to mapped keys
     XLSX.writeFile(workbook, 'myfile.xlsx')
+  }
+  const handleClickCsv = () => {
+    // const worksheet = XLSX.utils.json_to_sheet(data, {
+    //   header: orderedKeys, // use correct order of keys
+    // })
+    // XLSX.utils.sheet_add_aoa(worksheet, [orderedKeys.map((key) => KEY_MAP[key])], { origin: 'A1' })
+    // const csv = XLSX.utils.sheet_to_csv(worksheet)
+
+    // self made csv string
+    const csvRowsArray = [orderedKeys.map((key) => KEY_MAP[key]).join(',')]
+    data.forEach((rowData) => {
+      csvRowsArray.push(orderedKeys.map((key) => rowData[key] ?? '').join(','))
+    })
+    const csvString = csvRowsArray.join('\n')
+
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' })
+
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.setAttribute('href', url)
+    link.setAttribute('download', 'myfile.csv')
+    link.style.display = 'none'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
   return (
     <div className="App">
-      <button onClick={handleClick}>Export</button>
+      <button onClick={handleClick}>Export XlSX</button>
+      <button onClick={handleClickCsv}>Export CSV</button>
     </div>
   )
 }
