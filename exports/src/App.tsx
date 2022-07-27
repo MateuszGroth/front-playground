@@ -15,8 +15,8 @@ const order: Record<Key, number> = {
 }
 type Row = Partial<Record<Key, string>>
 const data: Row[] = [
-  { name: 'George Washington ASD AS DAS DAS DAS DAS ASD ', birthday: '1732-02-22', address: 'Gdynia' },
-  { name: 'John Adams', address: 'Gdynia', birthday: '1735-10-19' },
+  { name: 'George Wa,shington ASD AS DAS DAS DAS DAS ASD ', birthday: '1732-02-22', address: 'Gdynia' },
+  { name: 'John "Adams', address: 'Gdynia', birthday: '1735-10-19' },
   { birthday: '1735-10-19', name: 'Mateusz' },
   { address: 'test' },
   // ... one row per President
@@ -58,8 +58,25 @@ function App() {
 
     // self made csv string
     const csvRowsArray = [orderedKeys.map((key) => KEY_MAP[key]).join(',')]
+    const formatValue = (value: string | number | Date | null | undefined): string => {
+      let innerValue
+      if (value instanceof Date) {
+        innerValue = value.toLocaleString()
+      } else if (value != null) {
+        innerValue = String(value)
+      } else {
+        innerValue = ''
+      }
+
+      let result = innerValue.replace(/"/g, '""')
+      if (/("|,|\n)/.test(result)) {
+        result = '"' + result + '"'
+      }
+
+      return result
+    }
     data.forEach((rowData) => {
-      csvRowsArray.push(orderedKeys.map((key) => rowData[key] ?? '').join(','))
+      csvRowsArray.push(orderedKeys.map((key) => formatValue(rowData[key])).join(','))
     })
     const csvString = csvRowsArray.join('\n')
 
