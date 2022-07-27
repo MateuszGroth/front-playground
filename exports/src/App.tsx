@@ -15,7 +15,7 @@ const order: Record<Key, number> = {
 }
 type Row = Partial<Record<Key, string>>
 const data: Row[] = [
-  { name: 'George Wa,shington ASD AS DAS DAS DAS DAS ASD ', birthday: '1732-02-22', address: 'Gdynia' },
+  { name: 'George Wa,shin\ngton ASD AS DAS DAS DAS DAS ASD ', birthday: '1732-02-22', address: 'Gdynia' },
   { name: 'John "Adams', address: 'Gdynia', birthday: '1735-10-19' },
   { birthday: '1735-10-19', name: 'Mateusz' },
   { address: 'test' },
@@ -68,9 +68,10 @@ function App() {
         innerValue = ''
       }
 
-      let result = innerValue.replace(/"/g, '""')
+      let result = innerValue.replace(/"/g, '""').replace(/(\r)?\n|\r/g, ' ')
       if (/("|,|\n)/.test(result)) {
         result = '"' + result + '"'
+        console.log(result)
       }
 
       return result
