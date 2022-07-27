@@ -1,11 +1,11 @@
-import * as XLSX from 'xlsx'
+import { exportToXLSX, exportToCsv } from './export'
 
 type Key = 'name' | 'birthday' | 'address'
 const keys: Key[] = ['name', 'birthday', 'address']
 const KEY_MAP: Record<Key, string> = {
   name: 'Name',
   birthday: 'Birthday',
-  address: 'Address',
+  address: 'Address dlugi adres asda das das ',
 }
 
 const order: Record<Key, number> = {
@@ -23,74 +23,20 @@ const data: Row[] = [
 ]
 const orderedKeys = [...keys].sort((a, b) => order[a] - order[b])
 
-const columnsWidths: Array<{ wch: number }> = data
-  .reduce((acc: number[], row: Row) => {
-    orderedKeys.forEach((key, i) => {
-      if (!acc[i]) {
-        acc[i] = 10
-      }
-      acc[i] = Math.max(acc[i], row[key]?.length ?? 0)
-    })
-    return acc
-  }, [])
-  .map((wch: number) => ({ wch }))
-
 function App() {
   const handleClick = () => {
-    const worksheet = XLSX.utils.json_to_sheet(JSON.parse(JSON.stringify(data)), {
-      header: orderedKeys, // use correct order of keys
+    exportToXLSX({
+      data,
+      orderedKeys,
+      headerMap: KEY_MAP,
     })
-    worksheet['!cols'] = columnsWidths
-    XLSX.utils.sheet_add_aoa(worksheet, [orderedKeys.map((key) => KEY_MAP[key])], { origin: 'A1' })
-
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Dates')
-
-    // override header to mapped keys
-    XLSX.writeFile(workbook, 'myfile.xlsx')
   }
   const handleClickCsv = () => {
-    // const worksheet = XLSX.utils.json_to_sheet(data, {
-    //   header: orderedKeys, // use correct order of keys
-    // })
-    // XLSX.utils.sheet_add_aoa(worksheet, [orderedKeys.map((key) => KEY_MAP[key])], { origin: 'A1' })
-    // const csv = XLSX.utils.sheet_to_csv(worksheet)
-
-    // self made csv string
-    const csvRowsArray = [orderedKeys.map((key) => KEY_MAP[key]).join(',')]
-    const formatValue = (value: string | number | Date | null | undefined): string => {
-      let innerValue
-      if (value instanceof Date) {
-        innerValue = value.toLocaleString()
-      } else if (value != null) {
-        innerValue = String(value)
-      } else {
-        innerValue = ''
-      }
-
-      let result = innerValue.replace(/"/g, '""').replace(/(\r)?\n|\r/g, ' ')
-      if (/("|,|\n)/.test(result)) {
-        result = '"' + result + '"'
-        console.log(result)
-      }
-
-      return result
-    }
-    data.forEach((rowData) => {
-      csvRowsArray.push(orderedKeys.map((key) => formatValue(rowData[key])).join(','))
+    exportToCsv({
+      data,
+      orderedKeys,
+      headerMap: KEY_MAP,
     })
-    const csvString = csvRowsArray.join('\n')
-
-    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' })
-
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.setAttribute('href', url)
-    link.setAttribute('download', 'myfile.csv')
-    link.style.display = 'none'
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
   }
   return (
     <div className="App">
