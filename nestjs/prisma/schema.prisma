@@ -15,10 +15,13 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  name     String?
-  email    String   @unique
-  password String
-  Recipe   Recipe[]
+  name    String?
+  email   String   @unique
+  hash    String
+  
+  recipes Recipe[]
+
+  @@map("users")
 }
 
 model Recipe {
@@ -35,6 +38,8 @@ model Recipe {
 
   @@unique([authorId, title])
   @@index([title])
+  @@map("recipes")
+
 }
 
 model Ingredient {
@@ -42,6 +47,8 @@ model Ingredient {
 
   name    String
   recipes IngredientsOnRecipes[]
+
+  @@map("ingredients")
 }
 
 model IngredientsOnRecipes {
