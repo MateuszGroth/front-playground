@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  database:
+    image: postgis/postgis:13-3.1-alpine
+    ports:
+      - '5434:5432'
+    volumes:
+      - db_data:/var/lib/postgresql/data:cached
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret_password
+      POSTGRES_DB: nest
+
+volumes:
+  db_data:
