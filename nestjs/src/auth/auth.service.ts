@@ -1,12 +1,19 @@
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
 import { ForbiddenException, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
+
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AuthDto } from './dto';
 import * as argon from 'argon2';
 
 @Injectable({})
 export class AuthService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private jwt: JwtService,
+    private config: ConfigService,
+  ) {}
 
   async signin(dto: AuthDto) {
     // find user by email
@@ -28,9 +35,7 @@ export class AuthService {
       throw new ForbiddenException('Invalid credentials');
     }
 
-    delete user.hash;
-
-    return user;
+    return this.signToken(user.id, user.email);
   }
 
   async signup(dto: AuthDto) {
@@ -44,14 +49,14 @@ export class AuthService {
           email: dto.email,
           hash,
         },
-        select: {
-          id: true,
-          email: true,
-          createdAt: true,
-        },
+        // select: {
+        //   id: true,
+        //   email: true,
+        //   createdAt: true,
+        // },
       });
 
-      return user;
+      return this.signToken(user.id, user.email);
     } catch (error) {
       if (error instanceof PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
@@ -62,4 +67,42 @@ export class AuthService {
 
     return {};
   }
+
+  async signToken(
+    userId: number,
+    email: string,
+  ): Promise<{
+    user: { id: number; email: string };
+    access_token: string;
+    expires_in: number;
+  }> {
+    const payload = {
+      sub: userId,
+      email,
+    };
+
+    const expiresIn = 1000 * 60 * 60; // 1hour
+
+    const token = await this.jwt.signAsync(payload, {
+      expiresIn,
+      secret: this.config.get('JWT_SECRET'),
+    });
+
+    return {
+      user: {
+        id: userId,
+        email,
+      },
+      expires_in: expiresIn,
+      access_token: token,
+    };
+  }
 }
+
+type test = {
+  user: {
+    email: string;
+    id: number;
+  };
+  expiresIn: number;
+};
