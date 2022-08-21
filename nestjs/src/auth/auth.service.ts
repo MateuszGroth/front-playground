@@ -35,7 +35,14 @@ export class AuthService {
       throw new ForbiddenException('Invalid credentials');
     }
 
-    return this.signToken(user.id, user.email);
+    const tokenData = await this.signToken(user.id, user.email);
+
+    delete user.hash;
+
+    return {
+      user,
+      ...tokenData,
+    };
   }
 
   async signup(dto: AuthDto) {
@@ -72,7 +79,6 @@ export class AuthService {
     userId: number,
     email: string,
   ): Promise<{
-    user: { id: number; email: string };
     access_token: string;
     expires_in: number;
   }> {
@@ -81,19 +87,16 @@ export class AuthService {
       email,
     };
 
-    const expiresIn = 1000 * 60 * 60; // 1hour
+    const expiresInSeconds = 60 * 60;
+    const expiresInMiliseconds = expiresInSeconds * 1000;
 
     const token = await this.jwt.signAsync(payload, {
-      expiresIn,
+      expiresIn: expiresInSeconds,
       secret: this.config.get('JWT_SECRET'),
     });
 
     return {
-      user: {
-        id: userId,
-        email,
-      },
-      expires_in: expiresIn,
+      expires_in: expiresInMiliseconds,
       access_token: token,
     };
   }

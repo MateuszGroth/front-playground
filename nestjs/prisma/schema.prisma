@@ -15,10 +15,10 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  name    String?
-  email   String   @unique
-  hash    String
-  
+  name  String?
+  email String  @unique
+  hash  String
+
   recipes Recipe[]
 
   @@map("users")
@@ -35,11 +35,33 @@ model Recipe {
   title       String
   description String
   ingredients IngredientsOnRecipes[]
+  steps       StepsOnRecipes[]
 
   @@unique([authorId, title])
   @@index([title])
   @@map("recipes")
+}
 
+model StepsOnRecipes {
+  id Int @id @default(autoincrement())
+
+  recipeId Int
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  stepNumber  Int
+  description String
+
+  @@map("recipe_steps")
+}
+
+model IngredientCategory {
+  id Int @id @default(autoincrement())
+
+  name String
+
+  ingredients Ingredient[]
+
+  @@map("ingredient_categories")
 }
 
 model Ingredient {
@@ -48,16 +70,22 @@ model Ingredient {
   name    String
   recipes IngredientsOnRecipes[]
 
+  categoryId Int
+  category   IngredientCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
   @@map("ingredients")
 }
 
 model IngredientsOnRecipes {
-  recipeId     Int
-  recipe       Recipe     @relation(fields: [recipeId], references: [id])
-  ingredientId Int
-  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  id Int @id @default(autoincrement())
+
+  recipeId Int
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  ingredientId     Int?
+  ingredient       Ingredient? @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  customIngredient String?
+
   quantity     Int
   quantityUnit String
-
-  @@id([recipeId, ingredientId])
 }
