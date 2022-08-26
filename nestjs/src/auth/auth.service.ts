@@ -101,11 +101,3 @@ export class AuthService {
     };
   }
 }
-
-type test = {
-  user: {
-    email: string;
-    id: number;
-  };
-  expiresIn: number;
-};

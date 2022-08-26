@@ -7,7 +7,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { IngriedientDto } from './ingredient.dto';
+import { IngredientDto } from './ingredient.dto';
 import { StepDto } from './step.dto';
 
 export class CreateRecipeDto {
@@ -24,8 +24,8 @@ export class CreateRecipeDto {
   @IsArray() // or is object
   @ArrayNotEmpty()
   @ValidateNested({ each: true }) // each because we have an array of objects
-  @Type(() => IngriedientDto)
-  ingredients: IngriedientDto[];
+  @Type(() => IngredientDto)
+  ingredients: IngredientDto[];
 
   @IsArray() // or is object
   @ArrayNotEmpty()

@@ -7,6 +7,9 @@ import {
   Patch,
   Param,
   Body,
+  ParseIntPipe,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { GetUser } from 'src/auth/decorator';
 import { JwtAuthGuard } from 'src/auth/guard';
@@ -29,24 +32,25 @@ export class RecipeController {
   }
 
   @Get(':id')
-  getRecipeById(@Param('id') recipeId: number) {
+  getRecipeById(@Param('id', ParseIntPipe) recipeId: number) {
     return this.recipeService.getRecipeById(recipeId);
   }
 
   @Patch(':id')
   editRecipeById(
     @GetUser('sub') userId: number,
-    @Param('id') recipeId: number,
+    @Param('id', ParseIntPipe) recipeId: number,
     @Body() dto: EditRecipeDto,
   ) {
     return this.recipeService.editRecipeById(userId, recipeId, dto);
   }
 
+  @HttpCode(HttpStatus.NO_CONTENT)
   @Delete(':id')
   deleteRecipeById(
     @GetUser('sub') userId: number,
-    @Param('id') recipeId: number,
+    @Param('id', ParseIntPipe) recipeId: number,
   ) {
-    return this.recipeService.deleteRecipeById(recipeId);
+    return this.recipeService.deleteRecipeById(userId, recipeId);
   }
 }

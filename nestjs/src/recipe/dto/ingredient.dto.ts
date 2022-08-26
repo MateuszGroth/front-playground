@@ -7,7 +7,7 @@ import {
 } from 'class-validator';
 import { CustomIngredient } from './decorator';
 
-export class IngriedientDto {
+export class IngredientDto {
   @IsNumber()
   @IsOptional()
   ingredientId?: number;
