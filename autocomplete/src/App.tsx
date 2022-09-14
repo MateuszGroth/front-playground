@@ -1,10 +1,11 @@
-import { Container, Stack } from '@mui/material'
+import { Container, Stack, Typography } from '@mui/material'
+import Auto from './Auto'
 function App() {
   return (
-    <Container sx={{ display: 'grid', placeItems: 'center' }}>
+    <Container sx={{ display: 'grid', placeItems: 'center', height: '100%' }}>
       <Stack direction={'row'} gap={2}>
-        <div>Hello</div>
-        <div>World</div>
+        <Typography>My Autocomplete</Typography>
+        <Auto />
       </Stack>
     </Container>
   )
