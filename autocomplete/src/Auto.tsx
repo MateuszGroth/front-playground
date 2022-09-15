@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, forwardRef, ForwardedRef } from 'react'
-import { Chip, TextField, Autocomplete, CircularProgress } from '@mui/material'
+import { List, Chip, TextField, Autocomplete, CircularProgress } from '@mui/material'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { throttle } from 'lodash'
 
@@ -131,6 +131,10 @@ const Auto = () => {
       ListboxComponent={ListBox}
       ListboxProps={{
         onScroll: throttledHandleScroll,
+        // onScroll: (ev: UIEvent<HTMLElement>) => {
+        //   ev.persist();
+        //   throttledHandleScroll(ev);
+        // },
       }}
       renderInput={(params) => (
         <TextField
@@ -188,9 +192,18 @@ const ListBox = forwardRef(function ListBoxBase(props: ListBoxProps, ref: Forwar
   return (
     // role=list-box must not be removed. It makes the autocomplete not scroll to the top on options change
     // eslint-disable-next-line jsx-a11y/aria-role
-    <ul {...rest} ref={ref} role="list-box">
+    <List
+      {...rest}
+      ref={ref}
+      role="list-box"
+      sx={{
+        'li:hover': {
+          background: (theme) => theme.palette.action.hover,
+        },
+      }}
+    >
       {children}
-    </ul>
+    </List>
   )
 })
 
