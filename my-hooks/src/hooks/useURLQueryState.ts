@@ -46,13 +46,11 @@ export const useURLQueryState = <T = string>(
 
   const urlSearchParamValue = searchParams.get(options.key)
   const value = useMemo(() => {
-    const currentValue = parseValueRef.current(urlSearchParamValue)
-    if (initialValueRef.current && !currentValue) {
-      // if current value is empty
+    if (urlSearchParamValue == null && initialValueRef.current) {
       return initialValueRef.current
     }
 
-    return currentValue
+    return parseValueRef.current(urlSearchParamValue)
   }, [urlSearchParamValue, parseValueRef, initialValueRef])
 
   const onSetValue = useCallback(
