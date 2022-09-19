@@ -1,52 +1,70 @@
-import { useCallback, useState } from 'react'
-// import { useNavigate } from 'react-router-dom'
+import { useCallback, useMemo, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import useCallbackRef from './useCallbackRef'
 
 interface QueryStateOptions<T = string> {
   key: string
   initialValue?: T
-  formatValue?: (value: T) => string
+  formatValue?: (value: T) => string | undefined
   parseValue?: (value: string | null) => T
 }
 
 const DEFAULT_PARSE = <T>(value: unknown): T => value as T
 
-const DEFAULT_FORMAT = (value: string): string => value
+const DEFAULT_FORMAT = <T = string>(value: T): string | undefined => value as unknown as string
 
-const getQueryStringValue = <T>(
+const getNewSearchParams = <T>(
   key: string,
-  parseCallback: (value: string | null) => T | undefined = DEFAULT_PARSE
-): T | undefined => {
-  const searchParams = new URLSearchParams(window.location.search)
+  value: T,
+  formatCallback: (arg: T) => string | undefined = DEFAULT_FORMAT
+) => {
+  const newSearchParams = new URLSearchParams(window.location.search)
+  if (value == null) {
+    newSearchParams.delete(key)
+    return newSearchParams
+  }
+  const formattedValue = formatCallback(value)
 
-  return parseCallback(searchParams.get(key))
+  if (formattedValue == null) {
+    newSearchParams.delete(key)
+  } else {
+    newSearchParams.set(key, formattedValue)
+  }
+
+  return newSearchParams
 }
 
-export const useURLQueryState = <T>(options: QueryStateOptions<T>): [T | undefined, (value: T | undefined) => void] => {
-  const [value, setValue] = useState(getQueryStringValue<T>(options.key, options.parseValue) || options.initialValue)
+export const useURLQueryState = <T = string>(
+  options: QueryStateOptions<T>
+): [T | undefined, (value: T | undefined) => void] => {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const setSearchParamsRef = useCallbackRef(setSearchParams)
   const formatValueRef = useCallbackRef(options.formatValue || DEFAULT_FORMAT)
-  //   to const navigate = useNavigate()
-  const navigate = {} as any
+  const parseValueRef = useCallbackRef(options.parseValue || DEFAULT_PARSE)
+
+  const initialValueRef = useRef(options.initialValue)
+
+  const urlSearchParamValue = searchParams.get(options.key)
+  const value = useMemo(() => {
+    const currentValue = parseValueRef.current(urlSearchParamValue)
+    if (initialValueRef.current && !currentValue) {
+      // if current value is empty
+      return initialValueRef.current
+    }
+
+    return currentValue
+  }, [urlSearchParamValue, parseValueRef, initialValueRef])
 
   const onSetValue = useCallback(
     (newValue: T | undefined) => {
-      setValue(newValue)
+      // unset the initial value
+      initialValueRef.current = undefined
 
       // set query param value
-      const searchParams = new URLSearchParams(window.location.search)
-      if (newValue == null) {
-        searchParams.delete(options.key)
-      } else {
-        const formatCallback = formatValueRef.current as (value: T) => string
-        const formattedValue = formatCallback(newValue)
-
-        searchParams.set(options.key, formattedValue)
-      }
-
-      const urlWithoutQuery = window.location.pathname.split('?')[0]
-      navigate.replace(`${urlWithoutQuery}?${searchParams.toString()}`, { replace: false })
+      const newSearchParams = getNewSearchParams(options.key, newValue, formatValueRef.current)
+      setSearchParamsRef.current(newSearchParams)
     },
-    [options.key, navigate, formatValueRef]
+    [options.key, formatValueRef, setSearchParamsRef]
   )
 
   return [value, onSetValue]
