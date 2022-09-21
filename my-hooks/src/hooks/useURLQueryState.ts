@@ -34,6 +34,7 @@ const getNewSearchParams = <T>(
   return newSearchParams
 }
 
+// This hook stores state in query parameters and parses it into js state.
 export const useURLQueryState = <T = string>(
   options: QueryStateOptions<T>
 ): [T | undefined, (value: T | undefined) => void] => {
