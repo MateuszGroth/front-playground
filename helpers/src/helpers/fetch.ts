@@ -20,12 +20,12 @@ const request = async (url: RequestInfo, options: Partial<RequestInit>): Promise
   return response
 }
 
-export type FetchJsonOptions<RequestBodyType> = Partial<Omit<RequestInit, 'body'>> & { body?: RequestBodyType }
+export type FetchJsonOptions<ReqBody> = Partial<Omit<RequestInit, 'body'>> & { body?: ReqBody }
 
-const fetchJson = async <ResponseType, RequestBodyType = never>(
+const fetchJson = async <Res, ReqBody = never>(
   url: string | URL,
-  options: FetchJsonOptions<RequestBodyType> = {}
-): Promise<ResponseType> => {
+  options: FetchJsonOptions<ReqBody> = {}
+): Promise<Res> => {
   let urlPath = url.toString()
   // let urlPath = '';
   // if (url instanceof URL) {
@@ -48,12 +48,19 @@ const fetchJson = async <ResponseType, RequestBodyType = never>(
     headers,
   })
 
-  const data =
-    response.status !== 204 // Quick return if status code is 204 (No-Content)
-      ? await response.text().then((text) => (text.length ? JSON.parse(text) : undefined))
-      : undefined
+  if (response.status === 204) {
+    return undefined as Res
+  }
 
-  return data as ResponseType
+  return response.json()
+  // or return response.text().then((text) => (text.length ? JSON.parse(text) : undefined))
+
+  // const data =
+  //   response.status !== 204 // Quick return if status code is 204 (No-Content)
+  //     ? await response.text().then((text) => (text.length ? JSON.parse(text) : undefined))
+  //     : undefined
+
+  // return data as Res
 }
 
 export default fetchJson
