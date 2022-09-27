@@ -5,7 +5,7 @@ import { throttle } from 'lodash'
 
 const SEARCH_DEBOUNCE_DEYAL = 500
 
-type Option = { name: string; url: string }
+type Option = { name: string; url: string; isSelected?: boolean }
 const PER_PAGE = 30
 const fetchPokemons = async (
   search: string,
@@ -61,7 +61,7 @@ const Auto = () => {
     }
   )
 
-  const { fetchNextPage, hasNextPage, isFetching, data } = pokemonsQueryData
+  const { fetchNextPage, hasNextPage, isFetching, data, error, isError } = pokemonsQueryData
 
   const newOptions = useMemo<Option[]>(() => {
     const fetched =
@@ -69,7 +69,8 @@ const Auto = () => {
         return page.results
       }) ?? []
     const uniqueOptions: Option[] = []
-    return [...value, ...fetched].reduce((acc, curr) => {
+    const currentValue = value.map((val) => ({ ...val, isSelected: true }))
+    return [...fetched, ...currentValue].reduce((acc, curr) => {
       if (!acc.some(({ name }) => name === curr.name)) {
         acc.push(curr)
       }
@@ -102,12 +103,12 @@ const Auto = () => {
   }, [handleScroll])
 
   const isLoading = isFetching
-
+  console.log(error)
   return (
     <Autocomplete
       sx={{ flexBasis: '15rem', minWidth: '15rem' }}
       multiple
-      filterSelectedOptions
+      // filterSelectedOptions
       size="small"
       open={open}
       onOpen={() => setOpen(true)}
@@ -115,13 +116,13 @@ const Auto = () => {
       onInputChange={(event, newInputValue) => {
         setInputValue(newInputValue.trim())
       }}
+      filterOptions={(options) => options.filter(({ isSelected }) => !isSelected)}
       getOptionLabel={(option) => option.name}
       isOptionEqualToValue={(option, value) => option.name === value.name}
       loading={isLoading}
       onChange={handleChange}
       value={value}
       options={newOptions}
-      filterOptions={(x) => x}
       renderTags={(value: readonly Option[], getTagProps) =>
         value.map((option: Option, index: number) => (
           <Chip variant="outlined" size="small" label={option.name} {...getTagProps({ index })} />
@@ -142,6 +143,8 @@ const Auto = () => {
           size={'small'}
           name={'autocomplete'}
           label={'My Autocomplete'}
+          error={isError}
+          helperText={error ? error.toString().slice(0, 35) : undefined}
           InputProps={{
             ...params.InputProps,
             endAdornment: (
