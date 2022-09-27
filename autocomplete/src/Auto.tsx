@@ -109,6 +109,7 @@ const Auto = () => {
       sx={{ flexBasis: '15rem', minWidth: '15rem' }}
       multiple
       // filterSelectedOptions
+      data-testid="autocomplete"
       size="small"
       open={open}
       onOpen={() => setOpen(true)}
