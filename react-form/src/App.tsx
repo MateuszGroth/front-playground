@@ -6,18 +6,58 @@ import * as yup from 'yup'
 const schema = yup.object().shape({
   email: yup.string().email().required(),
   password: yup.string().min(8).max(32).required(),
+  min: yup
+    .number()
+    .positive()
+    .integer()
+    .test({
+      name: 'less-than-max',
+      exclusive: false,
+      params: {},
+      message: 'Min must be lower than Max',
+      test: function (value, context) {
+        const max = context.parent.max
+        if (value == null || max == null) {
+          return true
+        }
+
+        return isNaN(max) || isNaN(value) || value <= max
+      },
+    })
+    .required(),
+  max: yup
+    .number()
+    .positive()
+    .integer()
+    .test({
+      name: 'more-than-min',
+      exclusive: false,
+      params: {},
+      message: 'Max must be bigger than Min',
+      test: function (value, context) {
+        const min = context.parent.min
+        if (value == null || min == null) {
+          return true
+        }
+
+        return isNaN(min) || isNaN(value) || value >= min
+      },
+    })
+    .required(),
+  uncontrolled: yup.string().min(3).required(),
 })
 
 function App() {
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, dirtyFields, isSubmitted },
     reset,
     control,
   } = useForm({
     resolver: yupResolver(schema),
   })
+
   const onSubmit = (data: any) => {
     console.log({ data })
     reset()
@@ -40,9 +80,8 @@ function App() {
                   <TextField
                     {...rest}
                     fullWidth
-                    value={value ?? ''}
-                    error={isDirty && !!error}
-                    helperText={isDirty && !!error && error?.message}
+                    error={(formState.isSubmitted || isDirty) && !!error}
+                    helperText={(formState.isSubmitted || isDirty) && !!error && error?.message}
                   />
                 </>
               )}
@@ -59,11 +98,58 @@ function App() {
                     {...rest}
                     fullWidth
                     value={value ?? ''}
-                    error={isDirty && !!error}
-                    helperText={isDirty && !!error && error?.message}
+                    error={(formState.isSubmitted || isDirty) && !!error}
+                    helperText={(formState.isSubmitted || isDirty) && !!error && error?.message}
                   />
                 </>
               )}
+            />
+          </Grid>
+          <Grid item xs={3}>
+            <Controller
+              name={'min'}
+              control={control}
+              render={({ field: { value, ...rest }, fieldState: { error, isDirty, isTouched }, formState }) => (
+                <>
+                  <Typography variant={'subtitle1'}>Min</Typography>
+                  <TextField
+                    {...rest}
+                    fullWidth
+                    value={value ?? ''}
+                    error={(formState.isSubmitted || isDirty) && !!error}
+                    helperText={(formState.isSubmitted || isDirty) && !!error && error?.message}
+                  />
+                </>
+              )}
+            />
+          </Grid>
+          <Grid item xs={3}>
+            <Controller
+              name={'max'}
+              control={control}
+              render={({ field: { value, ...rest }, fieldState: { error, isDirty, isTouched }, formState }) => (
+                <>
+                  <Typography variant={'subtitle1'}>Max</Typography>
+                  <TextField
+                    {...rest}
+                    fullWidth
+                    value={value ?? ''}
+                    error={(formState.isSubmitted || isDirty) && !!error}
+                    helperText={(formState.isSubmitted || isDirty) && !!error && error?.message}
+                  />
+                </>
+              )}
+            />
+          </Grid>
+          <Grid item xs={6}>
+            <Typography variant={'subtitle1'}>Unregistered</Typography>
+            <TextField
+              {...register('uncontrolled')}
+              fullWidth
+              error={(isSubmitted || dirtyFields.uncontrolled) && !!errors.uncontrolled}
+              helperText={
+                (isSubmitted || dirtyFields.uncontrolled) && !!errors.uncontrolled && errors.uncontrolled.message
+              }
             />
           </Grid>
 
