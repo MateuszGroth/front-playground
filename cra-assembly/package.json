@@ -3,8 +3,10 @@
   "version": "0.1.0",
   "scripts": {
     "asbuild": "yarn asbuild:untouched && yarn asbuild:optimized",
-    "asbuild:optimized": "asc assembly/index.ts -b public/as-api.wasm -t public/as-api.wat --sourceMap --optimize",
+    "asbuild:optimized": "asc assembly/index.ts -b public/as-api.wasm",
     "asbuild:untouched": "asc assembly/index.ts -b public/as-api.wasm -t public/as-api.wat --sourceMap --debug",
+    "asbuild:debug": "asc app/assembly/index.ts --target debug",
+    "asbuild:test": "asc app/assembly/index.ts --target release",
     "build": "yarn asbuild && react-scripts build",
     "eject": "react-scripts eject",
     "preserve": "yarn build",
