@@ -1,5 +1,5 @@
 import { Container, Stack, Typography } from '@mui/material'
-import Auto from './Auto'
+import Auto from './AutoNew'
 function App() {
   return (
     <Container sx={{ display: 'grid', placeItems: 'center', height: '100%' }}>
