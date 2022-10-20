@@ -1,4 +1,5 @@
-import { Button, Container, Paper, Stack, Alert } from '@mui/material'
+import { Button, Container, Paper, Stack, Alert, IconButton, Icon } from '@mui/material'
+import CloseIcon from '@mui/icons-material/Close'
 import { SnackbarProvider, VariantType, useSnackbar } from 'notistack'
 import toast, { Toaster } from 'react-hot-toast'
 import AlertsProvider, { useShowAlert } from './Alert'
@@ -34,30 +35,55 @@ function App() {
             variant="outlined"
             onClick={() => {
               toast.custom(
-                <Alert
-                  sx={{
-                    fontSize: '1rem',
-                    maxWidth: '80vw',
+                (t) => (
+                  <Alert
+                    sx={{
+                      fontSize: '1rem',
+                      maxWidth: '80vw',
 
-                    [`& .MuiAlert-message`]: {
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                    },
-                  }}
-                  elevation={6}
-                  variant="filled"
-                  severity={'info'}
-                >
-                  Toaster Alert
-                </Alert>,
+                      [`& .MuiAlert-message`]: {
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                      },
+                    }}
+                    elevation={6}
+                    variant="filled"
+                    severity={'info'}
+                    action={
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          console.log(t.id)
+                          // toast.remove(t.id)
+                          toast.dismiss(t.id)
+                        }}
+                      >
+                        <CloseIcon />
+                      </IconButton>
+                    }
+                  >
+                    Toaster Alert
+                  </Alert>
+                ),
                 {
                   position: 'bottom-right',
+                  duration: Infinity,
                 }
               )
             }}
           >
             Show Toaster
+          </Button>
+          <Button
+            color="secondary"
+            variant="outlined"
+            onClick={() => {
+              const tid = toast.error('test', { duration: 10000, position: 'bottom-right' })
+              setTimeout(() => toast.dismiss(tid), 5000)
+            }}
+          >
+            Show Toaster test
           </Button>
         </Stack>
       </Paper>
