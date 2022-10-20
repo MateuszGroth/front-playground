@@ -33,6 +33,7 @@ function App() {
           <Button
             color="secondary"
             onClick={() => {
+              const id = Date.now().toString()
               const promise = new Promise<{ name: string }>((res, rej) => {
                 setTimeout(() => {
                   res({ name: 'TEST' })
@@ -42,16 +43,25 @@ function App() {
                 promise,
                 {
                   loading: 'Loading',
-                  success: (data) => `Successfully saved ${data.name}`,
+                  success: (data, ...arg) => (
+                    <>
+                      <Button onClick={() => toast.dismiss(id)}>Test</Button>
+                      {`Successfully saved ${data.name}`}
+                    </>
+                  ),
                   error: (err) => `This just happened: ${err.toString()}`,
                 },
                 {
+                  id: id,
                   style: {
                     minWidth: '250px',
                   },
                   success: {
                     duration: 5000,
                     icon: '🔥',
+                    style: {
+                      background: 'palegreen',
+                    },
                   },
                 }
               )
@@ -65,45 +75,42 @@ function App() {
             onClick={() => {
               toast.custom(
                 (t) => (
-                  console.log(t),
-                  (
-                    // <Fade in={t.visible} unmountOnExit>
-                    <Alert
-                      sx={{
-                        opacity: t.visible ? '1' : '0',
-                        transform: t.visible
-                          ? 'translateY(20px) scale(1) translateY(-20px)'
-                          : 'translateY(20px) scale(0.2) translateY(-20px)',
-                        transition: 'all 200ms ease-out',
-                        fontSize: '1rem',
-                        maxWidth: '80vw',
+                  // <Fade in={t.visible} unmountOnExit>
+                  <Alert
+                    sx={{
+                      opacity: t.visible ? '1' : '0',
+                      transform: t.visible
+                        ? 'translateY(20px) scale(1) translateY(-20px)'
+                        : 'translateY(20px) scale(0.2) translateY(-20px)',
+                      transition: 'all 200ms ease-out',
+                      fontSize: '1rem',
+                      maxWidth: '80vw',
 
-                        [`& .MuiAlert-message`]: {
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                        },
-                      }}
-                      elevation={6}
-                      variant="filled"
-                      severity={'info'}
-                      action={
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            console.log(t.id)
-                            toast.dismiss(t.id)
-                            // toast.remove(t.id)
-                            setTimeout(() => toast.remove(t.id), 300)
-                          }}
-                        >
-                          <CloseIcon />
-                        </IconButton>
-                      }
-                    >
-                      Toaster Alert
-                    </Alert>
-                  )
+                      [`& .MuiAlert-message`]: {
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                      },
+                    }}
+                    elevation={6}
+                    variant="filled"
+                    severity={'info'}
+                    action={
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          console.log(t.id)
+                          toast.dismiss(t.id)
+                          // toast.remove(t.id)
+                          // setTimeout(() => toast.remove(t.id), 300)
+                        }}
+                      >
+                        <CloseIcon />
+                      </IconButton>
+                    }
+                  >
+                    Toaster Alert
+                  </Alert>
                   // </Fade>
                 ),
                 {
