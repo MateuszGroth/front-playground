@@ -32,6 +32,35 @@ function App() {
           </Button>
           <Button
             color="secondary"
+            onClick={() => {
+              const promise = new Promise<{ name: string }>((res, rej) => {
+                setTimeout(() => {
+                  res({ name: 'TEST' })
+                }, 5000)
+              })
+              toast.promise(
+                promise,
+                {
+                  loading: 'Loading',
+                  success: (data) => `Successfully saved ${data.name}`,
+                  error: (err) => `This just happened: ${err.toString()}`,
+                },
+                {
+                  style: {
+                    minWidth: '250px',
+                  },
+                  success: {
+                    duration: 5000,
+                    icon: '🔥',
+                  },
+                }
+              )
+            }}
+          >
+            Show Toaster loading
+          </Button>
+          <Button
+            color="secondary"
             variant="outlined"
             onClick={() => {
               toast.custom(
