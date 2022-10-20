@@ -1,4 +1,4 @@
-import { Button, Container, Paper, Stack, Alert, IconButton, Icon } from '@mui/material'
+import { Button, Container, Paper, Stack, Alert, IconButton, Fade } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
 import { SnackbarProvider, VariantType, useSnackbar } from 'notistack'
 import toast, { Toaster } from 'react-hot-toast'
@@ -36,35 +36,46 @@ function App() {
             onClick={() => {
               toast.custom(
                 (t) => (
-                  <Alert
-                    sx={{
-                      fontSize: '1rem',
-                      maxWidth: '80vw',
+                  console.log(t),
+                  (
+                    // <Fade in={t.visible} unmountOnExit>
+                    <Alert
+                      sx={{
+                        opacity: t.visible ? '1' : '0',
+                        transform: t.visible
+                          ? 'translateY(20px) scale(1) translateY(-20px)'
+                          : 'translateY(20px) scale(0.2) translateY(-20px)',
+                        transition: 'all 200ms ease-out',
+                        fontSize: '1rem',
+                        maxWidth: '80vw',
 
-                      [`& .MuiAlert-message`]: {
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                      },
-                    }}
-                    elevation={6}
-                    variant="filled"
-                    severity={'info'}
-                    action={
-                      <IconButton
-                        size="small"
-                        onClick={() => {
-                          console.log(t.id)
-                          // toast.remove(t.id)
-                          toast.dismiss(t.id)
-                        }}
-                      >
-                        <CloseIcon />
-                      </IconButton>
-                    }
-                  >
-                    Toaster Alert
-                  </Alert>
+                        [`& .MuiAlert-message`]: {
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                        },
+                      }}
+                      elevation={6}
+                      variant="filled"
+                      severity={'info'}
+                      action={
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            console.log(t.id)
+                            toast.dismiss(t.id)
+                            // toast.remove(t.id)
+                            setTimeout(() => toast.remove(t.id), 300)
+                          }}
+                        >
+                          <CloseIcon />
+                        </IconButton>
+                      }
+                    >
+                      Toaster Alert
+                    </Alert>
+                  )
+                  // </Fade>
                 ),
                 {
                   position: 'bottom-right',
