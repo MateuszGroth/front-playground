@@ -1,9 +1,10 @@
-import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useURLQueryState } from './hooks/useURLQueryState'
+import useLocalStorage from './hooks/useLocalStorage'
 
 function App() {
   const nav = useNavigate()
+  const [text, setText] = useLocalStorage('text', '')
   const [state, setState] = useURLQueryState({
     key: 'test',
     initialValue: 'test',
@@ -11,7 +12,6 @@ function App() {
     formatValue: (val) => (val ? val : undefined),
   })
 
-  console.log(state)
   return (
     <div className="App">
       HI
@@ -19,6 +19,19 @@ function App() {
         <div>
           <input value={state} onChange={(ev) => setState(ev.target.value)} />
           <button onClick={() => nav('/', { replace: true })}>Test</button>
+        </div>
+        <div>
+          <input value={text} onChange={(ev) => setText(ev.target.value)} />
+          <button
+            onClick={() =>
+              setText((prevText) => {
+                console.log(prevText)
+                return ''
+              })
+            }
+          >
+            Text reset
+          </button>
         </div>
       </div>
     </div>
