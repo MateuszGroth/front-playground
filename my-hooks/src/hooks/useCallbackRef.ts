@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 
-const useCallbackRef = (callback: (...arg: any[]) => any): { current: (...arg: any[]) => any } => {
+const useCallbackRef = <T>(callback: T): { current: T } => {
   const ref = useRef(callback)
 
   useEffect(() => {

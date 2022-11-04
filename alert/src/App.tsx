@@ -95,6 +95,7 @@ function App() {
                     elevation={6}
                     variant="filled"
                     severity={'info'}
+                    // onClose={} instead of action
                     action={
                       <IconButton
                         size="small"
@@ -105,7 +106,7 @@ function App() {
                           // setTimeout(() => toast.remove(t.id), 300)
                         }}
                       >
-                        <CloseIcon />
+                        <CloseIcon fontSize="small" />
                       </IconButton>
                     }
                   >
