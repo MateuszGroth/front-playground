@@ -7,7 +7,7 @@ interface QueryStateOptions<T = string> {
   initialValue?: T
   defaultValue?: T
   formatValue?: (value: T) => string
-  parseValue?: (value: string | null) => T
+  parseValue?: (value: string | null) => T // parser can work like an 'initialValue' in case the value is null/undefined
 }
 
 const DEFAULT_PARSE = <T>(value: unknown): T => value as T
