@@ -5,6 +5,7 @@ import useCallbackRef from './useCallbackRef'
 interface QueryStateOptions<T = string> {
   key: string
   initialValue?: T
+  defaultValue?: T
   formatValue?: (value: T) => string | undefined
   parseValue?: (value: string | null) => T
 }
@@ -15,7 +16,7 @@ const DEFAULT_FORMAT = <T = string>(value: T): string | undefined => value as un
 
 const getNewSearchParams = <T>(
   key: string,
-  value: T,
+  value: T | undefined,
   formatCallback: (arg: T) => string | undefined = DEFAULT_FORMAT
 ) => {
   const newSearchParams = new URLSearchParams(window.location.search)
@@ -35,9 +36,7 @@ const getNewSearchParams = <T>(
 }
 
 // This hook stores state in query parameters and parses it into js state.
-export const useURLQueryState = <T = string>(
-  options: QueryStateOptions<T>
-): [T | undefined, (value: T | undefined) => void] => {
+export const useURLQueryState = <T = string>(options: QueryStateOptions<T>): [T, (value?: T) => void] => {
   const [searchParams, setSearchParams] = useSearchParams()
   const setSearchParamsRef = useCallbackRef(setSearchParams)
   const formatValueRef = useCallbackRef(options.formatValue || DEFAULT_FORMAT)
@@ -55,7 +54,7 @@ export const useURLQueryState = <T = string>(
   }, [urlSearchParamValue, parseValueRef, initialValueRef])
 
   const onSetValue = useCallback(
-    (newValue: T | undefined) => {
+    (newValue?: T) => {
       // unset the initial value
       initialValueRef.current = undefined
 
