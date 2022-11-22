@@ -3,9 +3,75 @@ import { useForm, Controller } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 
+import { dirtyValues } from './helpers'
+
+const EMAIL_REGEX = new RegExp(/^[\w\-.]+@(\w[\w-]*\.)+\w+$/)
+
+// const getValidationSchema = (t: (key: string) => string) => {
+//   return yup.object().shape({
+//     startedAt: yup
+//       .date()
+//       .nullable()
+//       .typeError(t("validation.date"))
+//       .test("isAfterDueAt", t("validation.before_due_at"), (value, context) => {
+//         if (value && context.parent.dueAt) {
+//           return !moment(value).isAfter(context.parent.dueAt);
+//         }
+//         return true;
+//       })
+//       .test("isAfterFinishedAt", t("validation.before_finished_at"), (value, context) => {
+//         if (value && context.parent.finishedAt) {
+//           return !moment(value).isAfter(context.parent.finishedAt);
+//         }
+//         return true;
+//       }),
+//     dueAt: yup
+//       .date()
+//       .nullable()
+//       .typeError(t("validation.date"))
+//       .test("isBeforeStartedAt", t("validation.after_started_at"), (value, context) => {
+//         if (value && context.parent.startedAt) {
+//           return !moment(value).isBefore(context.parent.startedAt);
+//         }
+//         return true;
+//       }),
+//     finishedAt: yup
+//       .date()
+//       .nullable()
+//       .typeError(t("validation.date"))
+//       .test("isBeforeStartedAt", t("validation.after_started_at"), (value, context) => {
+//         if (value && context.parent.startedAt) {
+//           return !moment(value).isBefore(context.parent.startedAt);
+//         }
+//         return true;
+//       }),
+//     customerContact: yup.object().shape({
+//       email: yup.string().matches(EMAIL_REGEX, {
+//         message: t("validation.email"),
+//         excludeEmptyString: true,
+//       }),
+//     }),
+//   });
+// };
+
 const schema = yup.object().shape({
-  email: yup.string().email().required(),
+  startedAt: yup.date().nullable().typeError('Invalid Date'),
+  email: yup
+    .string()
+    .email()
+    .matches(EMAIL_REGEX, {
+      message: 'Please enter your email',
+      excludeEmptyString: true,
+    })
+    .required(),
   password: yup.string().min(8).max(32).required(),
+  customerContact: yup.object().shape({
+    email: yup.string().matches(EMAIL_REGEX, {
+      message: 'Please enter your email',
+      excludeEmptyString: true,
+    }),
+  }),
+
   min: yup
     .number()
     .positive()
@@ -23,8 +89,7 @@ const schema = yup.object().shape({
 
         return isNaN(max) || isNaN(value) || value <= max
       },
-    })
-    .required(),
+    }),
   max: yup
     .number()
     .positive()
@@ -49,23 +114,30 @@ const schema = yup.object().shape({
 
 function App() {
   const {
+    watch,
     register,
     handleSubmit,
-    formState: { errors, dirtyFields, isSubmitted },
+    formState: { errors, dirtyFields, isSubmitted, isDirty },
     reset,
     control,
   } = useForm({
+    reValidateMode: 'onSubmit',
     resolver: yupResolver(schema),
   })
+  const startedAt = watch('startedAt')
 
   const onSubmit = (data: any) => {
-    console.log({ data })
-    reset()
+    if (!isDirty) {
+      return
+    }
+
+    const patchObj = dirtyValues(dirtyFields, data)
+    console.log({ patchObj, data, startedAt })
+    // reset()
   }
   const onReset = (data: any) => {
     reset()
   }
-
   return (
     <Container sx={{ height: '100%', py: 4 }}>
       <Paper elevation={2} sx={{ p: 3 }}>
@@ -80,8 +152,11 @@ function App() {
                   <TextField
                     {...rest}
                     fullWidth
-                    error={(formState.isSubmitted || isDirty) && !!error}
-                    helperText={(formState.isSubmitted || isDirty) && !!error && error?.message}
+                    // we validate on submit, so no need to check for isDirty and isSubmitted
+                    // error={(formState.isSubmitted || isDirty) && !!error}
+                    // helperText={(formState.isSubmitted || isDirty) && !!error && error?.message}
+                    error={!!error}
+                    helperText={error?.message}
                   />
                 </>
               )}
@@ -98,8 +173,10 @@ function App() {
                     {...rest}
                     fullWidth
                     value={value ?? ''}
-                    error={(formState.isSubmitted || isDirty) && !!error}
-                    helperText={(formState.isSubmitted || isDirty) && !!error && error?.message}
+                    // error={(formState.isSubmitted || isDirty) && !!error}
+                    // helperText={(formState.isSubmitted || isDirty) && !!error && error?.message}
+                    error={!!error}
+                    helperText={error?.message}
                   />
                 </>
               )}
@@ -116,8 +193,10 @@ function App() {
                     {...rest}
                     fullWidth
                     value={value ?? ''}
-                    error={(formState.isSubmitted || isDirty) && !!error}
-                    helperText={(formState.isSubmitted || isDirty) && !!error && error?.message}
+                    // error={(formState.isSubmitted || isDirty) && !!error}
+                    // helperText={(formState.isSubmitted || isDirty) && !!error && error?.message}
+                    error={!!error}
+                    helperText={error?.message}
                   />
                 </>
               )}
@@ -134,8 +213,10 @@ function App() {
                     {...rest}
                     fullWidth
                     value={value ?? ''}
-                    error={(formState.isSubmitted || isDirty) && !!error}
-                    helperText={(formState.isSubmitted || isDirty) && !!error && error?.message}
+                    // error={(formState.isSubmitted || isDirty) && !!error}
+                    // helperText={(formState.isSubmitted || isDirty) && !!error && error?.message}
+                    error={!!error}
+                    helperText={error?.message}
                   />
                 </>
               )}
@@ -146,10 +227,48 @@ function App() {
             <TextField
               {...register('uncontrolled')}
               fullWidth
-              error={(isSubmitted || dirtyFields.uncontrolled) && !!errors.uncontrolled}
-              helperText={
-                (isSubmitted || dirtyFields.uncontrolled) && !!errors.uncontrolled && errors.uncontrolled.message
-              }
+              error={!!errors.uncontrolled}
+              helperText={(errors?.uncontrolled?.message as string) ?? undefined}
+            />
+          </Grid>
+          <Grid item xs={12}>
+            <Controller
+              name={'customerContact.email'}
+              control={control}
+              render={({ field: { value, ...rest }, fieldState: { error, isDirty, isTouched }, formState }) => (
+                <>
+                  <Typography variant={'subtitle1'}>Contact email</Typography>
+                  <TextField
+                    {...rest}
+                    fullWidth
+                    value={value ?? ''}
+                    // error={(formState.isSubmitted || isDirty) && !!error}
+                    // helperText={(formState.isSubmitted || isDirty) && !!error && error?.message}
+                    error={!!error}
+                    helperText={error?.message}
+                  />
+                </>
+              )}
+            />
+          </Grid>
+          <Grid item xs={12}>
+            <Controller
+              name={'startedAt'}
+              control={control}
+              render={({ field: { value, ...rest }, fieldState: { error, isDirty, isTouched }, formState }) => (
+                <>
+                  <Typography variant={'subtitle1'}>Start Date</Typography>
+                  <TextField
+                    {...rest}
+                    fullWidth
+                    value={value ?? ''}
+                    // error={(formState.isSubmitted || isDirty) && !!error}
+                    // helperText={(formState.isSubmitted || isDirty) && !!error && error?.message}
+                    error={!!error}
+                    helperText={error?.message}
+                  />
+                </>
+              )}
             />
           </Grid>
 
