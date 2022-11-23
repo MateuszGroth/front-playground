@@ -44,6 +44,7 @@ describe('Auto', () => {
     consoleErrorMock.mockRestore()
   })
   beforeEach(() => {
+    consoleErrorMock.mockClear()
     jest.clearAllMocks()
     fetchMock.resetMocks()
   })
