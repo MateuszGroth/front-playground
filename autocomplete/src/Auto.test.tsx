@@ -36,6 +36,13 @@ const setup = () => {
   return { user, ...utils }
 }
 describe('Auto', () => {
+  let consoleErrorMock: any
+  beforeAll(() => {
+    consoleErrorMock = jest.spyOn(console, 'error').mockImplementation() // hide requests errors - 404, 406
+  })
+  afterAll(() => {
+    consoleErrorMock.mockRestore()
+  })
   beforeEach(() => {
     jest.clearAllMocks()
     fetchMock.resetMocks()
