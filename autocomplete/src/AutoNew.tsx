@@ -18,7 +18,6 @@ const fetchPokemons = async (
 
 const Auto = () => {
   const id = useId()
-  console.log(id)
   const [open, setOpen] = useState(false)
   const [inputValue, setInputValue] = useState('')
   const [value, setValue] = useState<Option[]>([])
