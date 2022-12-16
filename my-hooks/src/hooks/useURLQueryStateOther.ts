@@ -66,6 +66,8 @@ export const useURLQueryState = <T>(options: QueryStateOptions<T>): [T | undefin
       )
 
       const urlWithoutQuery = window.location.pathname.split('?')[0]
+      // navigate and do not replace the history -> move to new url ...
+      // ... so when back is called, it will go back to previous 'state'
       navigate(`${urlWithoutQuery}?${newSearchParams.toString()}`, { replace: false })
     },
     [options.key, options.defaultValue, navigate, formatValueRef]
