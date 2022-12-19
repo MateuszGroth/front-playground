@@ -3,6 +3,7 @@ import { useAutocomplete, AutocompleteGetTagProps } from '@mui/base/Autocomplete
 import CheckIcon from '@mui/icons-material/Check'
 import CloseIcon from '@mui/icons-material/Close'
 import { styled } from '@mui/material/styles'
+import { Tooltip } from '@mui/material'
 import { autocompleteClasses } from '@mui/material/Autocomplete'
 import { throttle } from 'lodash'
 
@@ -253,3 +254,11 @@ const Listbox = styled('ul')(
     }
   `
 )
+
+const StyledTooltip = styled(({ className, ...props }: any) => (
+  <Tooltip {...props} arrow classes={{ popper: className }} />
+))(({ theme }) => ({
+  [`& .class`]: {
+    fontSize: theme.typography.body2.fontSize,
+  },
+}))
