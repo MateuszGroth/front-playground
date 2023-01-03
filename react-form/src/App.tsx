@@ -113,6 +113,9 @@ const schema = yup.object().shape({
 })
 
 function App() {
+  // const resolver = useMemo(() => {
+  //   return yupResolver(schema);
+  // }, []);
   const {
     watch,
     register,
@@ -123,6 +126,7 @@ function App() {
   } = useForm({
     reValidateMode: 'onSubmit',
     resolver: yupResolver(schema),
+    // defaultValues: {}
   })
   const startedAt = watch('startedAt')
 
@@ -137,6 +141,7 @@ function App() {
   }
   const onReset = (data: any) => {
     reset()
+    // reset({...defaultValues, ...stuff]})
   }
   return (
     <Container sx={{ height: '100%', py: 4 }}>
