@@ -4,7 +4,6 @@ import { useSearchParams } from 'react-router-dom'
 function TestSearchParams() {
   const [searchParams, setSearchParams] = useSearchParams()
   useEffect(() => {
-    console.log('idzie to')
     setSearchParams(searchParams)
   }, [])
 
