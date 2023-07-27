@@ -19,9 +19,7 @@ const useIntersectionObserver = <TRef extends RefObject<HTMLElement>>(
     observer.observe(observedElement)
 
     return () => {
-      if (observedElement) {
-        observer.unobserve(observedElement)
-      }
+      observer.disconnect()
     }
   }, [])
 
