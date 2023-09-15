@@ -39,3 +39,31 @@
 .read-the-docs {
   color: #888;
 }
+
+
+
+.button {
+  animation: pulse 2s linear infinite;
+}
+
+@keyframes pulse {
+  0%,
+  20% {
+    box-shadow: 0 0 0;
+    outline: 0;
+    outline-offset: 0px;
+  }
+
+  40%,
+  70% {
+    box-shadow: 0 0 0 12px rgb(249 246 255 / 1);
+    outline: 2px solid rgb(233 215 255 / 0.85);
+    outline-offset: 24px;
+  }
+
+  100% {
+    box-shadow: 0 0 0 24px rgb(249 246 255 / 0);
+    outline-offset: 48px;
+    outline: 2px solid rgb(233 215 255 / 0);
+  }
+}
