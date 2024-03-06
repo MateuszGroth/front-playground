@@ -1,0 +1,4 @@
+.pdf-viewer-wrapper :global {
+  @import '~react-pdf/dist/esm/Page/AnnotationLayer';
+  @import '~react-pdf/dist/esm/Page/TextLayer';
+}

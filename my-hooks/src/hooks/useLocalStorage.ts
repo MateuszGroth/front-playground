@@ -46,7 +46,7 @@ const useLocalStorage = <T>(key: string, initialValue: T): [T, (value: T | ((pre
     }
   }, [])
 
-  return [storedValue, setValue]
+  return [storedValue, setValue] as const
 }
 
 export default useLocalStorage

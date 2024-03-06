@@ -18,6 +18,12 @@ const Auto = () => {
         return page.results
       }) ?? []
     const uniqueOptions: Option[] = []
+    // we put isSelected on the value as we do not want to filterSelectedValue ...
+    // ... because if the search results contain the value that is already selected ...
+    // ... we want to show the option from results at the same time highlighting it ...
+    // ... to indicate selection. At the same time, if the results don't contain the value ...
+    // ... we want to filter it out with:
+    // filterOptions={(options) => options.filter(({ isSelected }) => !isSelected)}
     const currentValue = value.map((val) => ({ ...val, isSelected: true }))
     return [...fetched, ...currentValue].reduce((acc, curr) => {
       if (!acc.some(({ name }) => name === curr.name)) {
@@ -26,6 +32,8 @@ const Auto = () => {
       return acc
     }, uniqueOptions)
   }, [value, data])
+
+  console.log({ newOptions })
 
   const handleChange = (ev: any, newValue: Option[]) => {
     setValue(newValue)
