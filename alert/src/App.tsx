@@ -1,5 +1,5 @@
-import { Button, Container, Paper, Stack, Alert, IconButton, Fade } from '@mui/material'
 import CloseIcon from '@mui/icons-material/Close'
+import { Alert, Button, Container, FormControl, IconButton, InputLabel, MenuItem, Paper, Select, Stack } from '@mui/material'
 import { SnackbarProvider, VariantType, useSnackbar } from 'notistack'
 import toast, { Toaster } from 'react-hot-toast'
 import AlertsProvider, { useShowAlert } from './Alert'
@@ -133,6 +133,7 @@ function App() {
           >
             Show Toaster test
           </Button>
+          <Test />
         </Stack>
       </Paper>
     </Container>
@@ -148,4 +149,19 @@ const WithAlerts = () => {
     </AlertsProvider>
   )
 }
+
+
+const Test = () => {
+  return (
+    <FormControl sx={{ minWidth: '200px' }}>
+      <InputLabel id={`demo-simple-select`}>Test</InputLabel>
+      <Select labelId="demo-simple-select-label" id="demo-simple-select">
+        <MenuItem value={10}>Ten</MenuItem>
+        <MenuItem value={20}>Twenty</MenuItem>
+        <MenuItem value={30}>Thirty</MenuItem>
+      </Select>
+    </FormControl>
+  )
+}
+
 export default WithAlerts

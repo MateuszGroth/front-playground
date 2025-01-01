@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "esModuleInterop": true,
+    "allowJs": false,
+    "target": "es2022",
+    "verbatimModuleSyntax": true,
+    "resolveJsonModule": true,
+    "moduleDetection": "force",
+    "strict": true,
+    "noImplicitAny": true,
+    "lib": ["es2022", "dom", "DOM.Iterable"],
+    "sourceMap": true,
+    "skipLibCheck": true,
+    "jsx": "react-jsx",
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "Bundler",
+    "module": "ESNext",
+    "noEmit": true,
+    "declaration": true
+  },
+  "include": ["src/**/*", "stories/**/*", ".storybook/**/*"],
+  "exclude": ["node_modules"]
+}

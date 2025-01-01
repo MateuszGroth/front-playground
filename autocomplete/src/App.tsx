@@ -1,6 +1,6 @@
 import { Container, Stack, Typography } from '@mui/material'
-import Auto from './Auto'
-// import AutoNew from './AutoNew'
+// import Auto from './Auto'
+import AutoNew from './AutoNew'
 // import AutoCustom from './AutoCustom'
 function App() {
   return (
@@ -8,7 +8,7 @@ function App() {
       <Stack gap={2}>
         <Stack direction={'row'} gap={2} sx={{ mb: 2 }}>
           <Typography>My Autocomplete test</Typography>
-          <Auto />
+          <AutoNew />
         </Stack>
         {/* <Stack direction={'row'} gap={2}>
           <Typography>Custom Autocomplete</Typography>

@@ -1,0 +1,341 @@
+# Write Storybook stories guide
+
+## TOC
+
+- [Write Storybook stories guide](#write-storybook-stories-guide)
+  - [Stories format](#stories-format)
+  - [Story default export](#story-default-export)
+  - [Writing stories](#writing-stories)
+    - [Overview Story](#overview-story)
+    - [Story represents state](#story-represents-state)
+    - [Prop overview story](#prop-overview-story)
+    - [Common props for stories](#common-props-for-stories)
+      - [Using other Stories args](#using-other-stories-args)
+    - [Styling stories](#styling-stories)
+      - [Component decorator](#component-decorator)
+      - [Story level decorator](#story-level-decorator)
+    - [Story props controls](#story-props-controls)
+      - [Customize controls](#customize-controls)
+    - [Story actions](#story-actions)
+  - [Docs page](#docs-page)
+    - [Improvements](#improvements)
+    - [Component description](#component-description)
+    - [Story description](#story-description)
+    - [Props table](#props-table)
+
+## Stories format
+
+As the recommended way to write Stories is using CSF [Component Story Format](https://storybook.js.org/docs/7.0/react/api/csf).
+As Storybook announced the CSF version 3 we will write new stories in this format.
+
+To create a stories file we create file
+`<ComponentName>.stories.tsx`
+
+## Story default export
+
+For correct story listing and providing information to Storybook addons we need to export default the Story metadata.
+`title` allow to list component story on Storybook navigation and `component` is required to automated prop table generation.
+
+```typescript jsx
+const meta: Meta<typeof Rating> = {
+  title: 'Components/Rating',
+  component: Rating,
+}
+
+export default meta
+```
+
+## Writing stories
+
+Each named export object is a single Story. Order of named exports is represented in Storybook navigation.
+
+### Overview Story
+
+Each component should have the `Overview` story. Overview story is a basic story that renders component in its default state.
+
+```typescript
+type Story = StoryObj<typeof Rating>
+
+export const Overview: Story = {}
+```
+
+### Story represents state
+
+As story should be representation of state we should keep it simple and create separate story for different states.
+
+```typescript jsx
+// Showcase the state of Rating component where variant is set to "triangles"
+export const Triangles: Story = {
+  args: {
+    variant: 'triangles',
+  },
+}
+
+// Showcase the state of Rating component where variant is set to "starts-outline"
+export const StarsOutline: Story = {
+  args: {
+    variant: 'stars-outline',
+  },
+}
+```
+
+### Prop overview story
+
+When component has prop that represents a lot of different states (more than 3) we create prop overview story.
+It is a story that renders component with each possible prop choice. As such story renders more than default component we have to use the `render` function.
+
+Using `PropsOverviewTemplate` component as wrapper allows to present variants in more legible way.
+`PropsOverviewTemplate` takes `variantPropName` props to properly show then prop variant name.
+
+```typescript jsx
+export const Variants = {
+  // ❕We need pass args to render function and to component to auto source code generation for docs
+  render: (args) => (
+    <PropOverviewTemplate variantPropName="variant">
+      {Object.keys(ButtonVariants).map(variant => {
+        return (
+        <Button {...args} key={variant} variant={variant}>
+          {variant}
+        </Button>
+        );
+      })}
+    </PropOverviewTemplate>
+  ),
+};
+
+
+export const Sizes = {
+  render: (args: ButtonProps) => (
+    <PropOverviewTemplate variantPropName="size">
+      <Button {...args} variant="primary" size="x-small">
+        x-small
+      </Button>
+      <Button {...args} variant="primary" size="small">
+        small
+      </Button>
+      <Button {...args} variant="primary" size="medium">
+        medium
+      </Button>
+    </PropOverviewTemplate>
+  ),
+};
+```
+
+### Common props for stories
+
+If stories needs to have a common props we should set it on meta object.
+
+```typescript jsx
+const meta: Meta<ButtonProps> = {
+  title: 'Components/Button',
+  component: Button,
+  args: {
+    variant: 'primary',
+  },
+}
+```
+
+#### Using other Stories args
+
+It is possible to use composition by sharing args object defined on story level between other stories.
+
+```typescript jsx
+export const StarsOutline: Story = {
+  args: {
+    variant: 'stars-outline',
+  },
+}
+
+export const StartsWithError: Story = {
+  storyName: 'With error',
+  args: {
+    ...StarsOutline.args,
+    error: 'Somethings went wrong',
+  },
+}
+```
+
+### Styling stories
+
+For case where we need to style the view for story we use [Decorators](https://storybook.js.org/docs/7.0/react/writing-stories/decorators)
+
+Each story in a project is wrapped by `<div className="braintrust-ui-component-story">`.
+That allows us to use styles from `src/StoriesStyles/style.scss` within stories.
+
+To use this classes we need to wrap component or single story with extra markup by decorators.
+
+#### Component decorator
+
+```typescript jsx
+const meta: Meta<ButtonProps> = {
+  title: 'Components/Button',
+  component: Button,
+  args: {
+    variant: 'primary',
+  },
+  decorators: [Story => <div className="flex gap-2 flex-wrap">{Story()}</div>],
+};
+```
+
+#### Story level decorator
+
+```typescript jsx
+export const Default = {
+  decorators: [
+    (Story) => (
+      <div style={{ margin: '3em' }}>
+        <Story />
+      </div>
+    ),
+  ],
+};
+```
+
+### Story props controls
+
+For simple stories that renders component itself in different states Storybook generates the table with props controls.
+
+[Controls](https://storybook.js.org/docs/react/essentials/controls) allows to easily interact with props within the story preview.
+
+#### Customize controls
+
+Controls are created based on component type. Each control can be also configured by using `argTypes`.
+[All available controls](https://storybook.js.org/docs/react/essentials/controls#annotation)
+
+For some complex types Storybook not always create controls properly. Look at example.
+
+##### Button example
+
+`Button` component has `variant` prop which is typed as `type ButtonVariants = EnumType<typeof Variants>`.
+That makes Storybook miss proper control creation. To improve control we configure it through `meta` component:
+
+```typescript jsx
+// Shorthand
+const meta: Meta<ButtonProps> = {
+  title: 'Components/Button',
+  component: Button,
+  args: {
+    variant: 'primary',
+    children: 'Text',
+  },
+  argTypes: {
+    variant: { control: 'select', options: ButtonVariants },
+  },
+}
+
+// Extended  argsType object
+
+argTypes = {
+  variant: {
+    control: { type: 'select', options: ButtonVariants },
+    description: 'Set the variant prop for button',
+    // Reconfigure the table in docs page
+    table: {
+      // Sets type
+      type: { summary: 'string', detail: 'Detailed description of type' },
+      defaultValue: { summary: '-' },
+    },
+  },
+}
+```
+
+#### Story actions
+
+Story Actions is a plugin that allows to take a look on preview of event emmited by an action.
+We have globaly set Storybook to figure out and handle as action props with name starting from `on*`.
+
+For other actions we could handle this by `argTypes`
+
+```typescript jsx
+const meta: Meta<ButtonProps> = {
+  title: 'Components/Button',
+  component: Button,
+  argTypes: {
+    onClick: {
+      action: 'clicked',
+    },
+  },
+}
+```
+
+## Docs page
+
+Based on the stories defined in `*.stories.tsx` Storybook automatically generates the docs page.
+
+Just as the order of story exports had significance in the order of those stories in navigation, the same order will be reflected in the docs page.
+
+### Improvements
+
+#### Component description
+
+To add description of component at the top of the docs page use meta component `parameters` object.
+
+```typescript jsx
+const meta: Meta<typeof Rating> = {
+  title: 'Components/Rating/RatingCSF3',
+  component: Rating,
+  parameters: {
+    docs: {
+      description: {
+        component: 'Rating component renders the sequence of shapes to represents avarage rating.',
+      },
+    },
+  },
+}
+```
+
+#### Story description
+
+To add description to single story use parameters object at story level.
+
+```typescript jsx
+export const Sizes = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'A button supports `x-small`, `small` and `medium` size. Default size is `medium`.',
+      },
+    },
+  },
+  render: (args: ButtonProps) => (
+    <>
+      <Button {...args} variant="primary" size="x-small">
+        x-small
+      </Button>
+      <Button {...args} variant="primary" size="small">
+        small
+      </Button>
+      <Button {...args} variant="primary" size="medium">
+        medium
+      </Button>
+    </>
+  ),
+};
+```
+
+### Props table
+
+Storybook generates the props table automatically based on component types.
+
+To improve props description we need to annotate types with comments
+
+```typescript jsx
+export interface RatingProps extends RatingPropsMUI {
+  /**
+   * Controls rendered shape of rating component items.
+   */
+  variant?: 'triangles' | 'stars' | 'stars-outline'
+  /**
+   * Controls size of Rating shape.
+   */
+  size?: Size
+  /**
+   * Controls color of shape.
+   */
+  color?: Color
+  /**
+   * Allows to add custom css styles for icons.
+   */
+}
+```

@@ -1,13 +1,12 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useAutocomplete, AutocompleteGetTagProps } from '@mui/base/AutocompleteUnstyled'
 import CheckIcon from '@mui/icons-material/Check'
 import CloseIcon from '@mui/icons-material/Close'
-import { styled } from '@mui/material/styles'
-import { Tooltip } from '@mui/material'
+import { AutocompleteGetTagProps, Tooltip, useAutocomplete } from '@mui/material'
 import { autocompleteClasses } from '@mui/material/Autocomplete'
+import { styled } from '@mui/material/styles'
 import { throttle } from 'lodash'
+import { useCallback, useMemo, useState } from 'react'
 
-import { useData, Option } from './useData'
+import { Option, useData } from './useData'
 
 export default function AutoCustom() {
   const [open, setOpen] = useState(false)
@@ -74,12 +73,12 @@ export default function AutoCustom() {
     open,
     onOpen: () => setOpen(true),
     onClose: () => setOpen(false),
-    onInputChange: (event, newInputValue) => {
+    onInputChange: (event: any, newInputValue: any) => {
       setInputValue(newInputValue.trim())
     },
-    filterOptions: (options) => options.filter(({ isSelected }) => !isSelected),
-    getOptionLabel: (option) => option.name,
-    isOptionEqualToValue: (option, value) => option.name === value.name,
+    filterOptions: (options: any) => options.filter(({ isSelected }: any) => !isSelected),
+    getOptionLabel: (option: any) => option.name,
+    isOptionEqualToValue: (option: any, value: any) => option.name === value.name,
   })
 
   return (

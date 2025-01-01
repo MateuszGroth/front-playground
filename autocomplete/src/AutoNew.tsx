@@ -129,7 +129,7 @@ const Auto = () => {
       sx={{ flexBasis: '15rem', minWidth: '15rem' }}
       multiple
       // filterSelectedOptions
-      data-testid="autocomplete"
+      // data-testid="autocomplete"
       size="small"
       open={open}
       onOpen={(ev) => setOpen(true)}
@@ -149,20 +149,20 @@ const Auto = () => {
           <Chip variant="outlined" size="small" label={option.name} {...getTagProps({ index })} />
         ))
       }
-      clearIcon={isLoading ? <></> : undefined}
+      // clearIcon={isLoading ? <></> : undefined}
       // ListboxComponent={ListBox}
-      onHighlightChange={(ev, option, reason) => {
-        if (reason !== 'keyboard' || ev?.type !== 'keydown' || !autocompleteRef.current) {
-          return
-        }
-        const listBoxEl = document.getElementById(id)
-        if (listBoxEl) {
-          listboxRef.current = listBoxEl
-        }
-        throttledHandleScroll(ev, false)
-      }}
+      // onHighlightChange={(ev, option, reason) => {
+      //   if (reason !== 'keyboard' || ev?.type !== 'keydown' || !autocompleteRef.current) {
+      //     return
+      //   }
+      //   const listBoxEl = document.getElementById(id)
+      //   if (listBoxEl) {
+      //     listboxRef.current = listBoxEl
+      //   }
+      //   throttledHandleScroll(ev, false)
+      // }}
       ListboxProps={{
-        id: id,
+        // id: id,
         onScroll: throttledHandleScroll,
         // onScroll: (ev: UIEvent<HTMLElement>) => {
         //   ev.persist();
